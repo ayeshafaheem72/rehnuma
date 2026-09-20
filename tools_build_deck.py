@@ -24,10 +24,10 @@ PROJ = r"C:\Users\Admin\OneDrive - InterSec, Inc\United Bank Limited"
 OUT = os.path.join(PROJ, "Rehnuma_UBL_Presentation.pptx")
 LOGO = os.path.join(PROJ, "static", "ubl-logo.png")
 
-# UBL brand, sampled from their own stylesheet
+# UBL brand, sampled pixel-for-pixel from the logo artwork itself
 NAVY   = RGBColor(0x0C, 0x2B, 0x45)   # headline ink
-BLUE   = RGBColor(0x00, 0x83, 0xCA)   # UBL primary - the single accent
-BLUE_L = RGBColor(0x21, 0x99, 0xE8)
+BLUE   = RGBColor(0x00, 0x70, 0xB8)   # the mark's own blue - the single accent
+BLUE_L = RGBColor(0x50, 0xA0, 0xD0)   # the lighter blue in the swoosh
 DEEP   = RGBColor(0x0F, 0x58, 0x85)
 GREY   = RGBColor(0x80, 0x82, 0x85)   # body / secondary
 GREY_L = RGBColor(0xE6, 0xE7, 0xE8)   # rules and fills
@@ -145,7 +145,7 @@ s = slide()
 rosette(s, 11.15, 3.15, 3.5, FAINT)          # the single truck-art ornament
 rosette(s, 11.15, 3.15, 1.5, RGBColor(0xEC, 0xF3, 0xF9))
 
-logo(s, M, 0.72, 0.52)
+logo(s, M, 0.66, 0.74)
 
 txt(s, M, 1.92, 9.0, 1.3, "Rehnuma", size=68, color=NAVY, font=HEAD, bold=True)
 txt(s, M, 3.06, 9.0, 0.5, "\u0631\u06C1\u0646\u0645\u0627  \u2014  the guide",
