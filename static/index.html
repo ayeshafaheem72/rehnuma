@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rehnuma</title>
+<meta name="description" content="Turn any content into an adaptive, voice-enabled learning experience.">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2310131A'/><circle cx='16' cy='16' r='9' fill='%23FFC402' stroke='%23E6006E' stroke-width='3'/></svg>">
+</head>
+<body>
+<div class="shell">
+  <div class="chevron"></div>
+
+  <header class="topbar">
+    <div class="cobrand">
+      <div class="logo-slot">
+        <img id="ublLogo" src="/static/ubl-logo.png" alt="United Bank Limited" hidden>
+        <div class="logo-fallback" id="ublFallback">UBL</div>
+      </div>
+      <div class="presents">Presented by<b>United Bank Limited</b></div>
+    </div>
+
+    <div class="brand">
+      <div class="mark rosette"></div>
+      <div>
+        <div class="wordmark">REHNUMA<span class="urdu-mark">رہنما</span></div>
+        <div class="eyebrow">Learning Experience Engine</div>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="stat-row" id="stats" hidden>
+      <div class="stat xp"><span class="label">XP</span><span id="statXp">0</span></div>
+      <div class="stat streak"><span class="label">Streak</span><span id="statStreak">0</span></div>
+      <div class="stat mastery"><span class="label">Mastery</span><span id="statMastery">0%</span></div>
+      <div class="stat level"><span class="label">Lang</span><span id="statLang">EN</span></div>
+    </div>
+
+    <a class="btn ghost sm" href="/admin">Admin</a>
+  </header>
+
+  <div class="giving-back">
+    <span class="tag">Giving back</span>
+    <span>Knowledge should not sit behind a counter. Rehnuma turns any material into a
+      learning experience anyone can follow &mdash; in English or Urdu, by voice or by text.</span>
+  </div>
+
+  <!-- ============================ SETUP ============================ -->
+  <main class="main" id="setupView" style="grid-template-columns:1fr">
+    <div class="setup col">
+
+      <div class="panel cream">
+        <div class="panel-head">
+          <h2>Bring your content</h2>
+          <div class="spacer"></div>
+          <span class="eyebrow" style="color:var(--ink);opacity:.6">Step 1</span>
+        </div>
+        <div class="panel-body">
+          <p class="small" style="margin-top:0">
+            Upload a PDF or paste text. Rehnuma reads it, maps the ideas inside it, and turns
+            them into a playable journey &mdash; grounded in your material, quote by quote.
+          </p>
+
+          <div class="tabs" role="tablist">
+            <button class="tab" id="tabFile" role="tab" aria-selected="true" aria-controls="paneFile">Upload a file</button>
+            <button class="tab" id="tabText" role="tab" aria-selected="false" aria-controls="paneText">Paste text</button>
+          </div>
+
+          <div class="panel cream" style="border-top:0;box-shadow:none">
+            <div class="panel-body">
+              <div id="paneFile" role="tabpanel">
+                <div class="field">
+                  <label for="fileInput">PDF, .txt or .md &mdash; up to 8&nbsp;MB</label>
+                  <input type="file" id="fileInput" accept=".pdf,.txt,.md,.markdown,.csv">
+                </div>
+              </div>
+
+              <div id="paneText" role="tabpanel" hidden>
+                <div class="field">
+                  <label for="titleInput">Title</label>
+                  <input type="text" id="titleInput" placeholder="e.g. Branch Onboarding Policy">
+                </div>
+                <div class="field">
+                  <label for="textInput">Paste the content</label>
+                  <textarea id="textInput" rows="7" placeholder="Paste a policy, a chapter, an article&hellip;"></textarea>
+                </div>
+                <button class="btn sm ghost" id="sampleBtn" type="button" style="color:var(--ink);border-color:var(--ink)">Load sample content</button>
+              </div>
+
+              <div class="field mt">
+                <label for="labelInput">Learner name</label>
+                <input type="text" id="labelInput" value="Learner" maxlength="60">
+              </div>
+
+              <div class="row mt">
+                <button class="btn pink" id="buildBtn" type="button">Build my experience</button>
+                <span class="small" id="buildNote" style="color:var(--ink);opacity:.65"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="scallop"></div>
+      </div>
+
+      <div class="panel" id="mapPreview" hidden>
+        <div class="panel-head"><h2>What Rehnuma found</h2></div>
+        <div class="panel-body">
+          <div id="mapList" class="col"></div>
+          <button class="btn green mt" id="startBtn" type="button">Start learning</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ============================ LEARN ============================ -->
+  <main class="main hidden" id="learnView">
+
+    <!-- board -->
+    <div class="col">
+      <section class="panel">
+        <div class="panel-head">
+          <h2 id="sourceTitle">Your journey</h2>
+        </div>
+        <div class="panel-body">
+          <div class="xp-meter" title="Progress to the next level"><span id="xpBar"></span></div>
+          <div class="board" id="board"></div>
+        </div>
+        <div class="scallop"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Badges</h2></div>
+        <div class="panel-body">
+          <div class="badges" id="badges"><span class="small muted">None yet &mdash; go earn some.</span></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- conversation -->
+    <section class="panel" style="min-width:0">
+      <div class="panel-head">
+        <h2>The journey</h2>
+        <div class="spacer"></div>
+        <button class="btn sm ghost" id="speakToggle" type="button" aria-pressed="false" title="Read answers aloud">🔈 Voice off</button>
+        <span class="eyebrow" id="latencyNote"></span>
+      </div>
+
+      <div class="stream" id="stream" aria-live="polite"></div>
+
+      <div class="composer">
+        <button class="mic" id="micBtn" type="button" title="Hold a conversation out loud" aria-label="Speak your answer">🎤</button>
+        <textarea class="say-box" id="sayBox" rows="1" placeholder="Say what you think&hellip;" aria-label="Your reply"></textarea>
+        <button class="btn" id="sendBtn" type="button">Send</button>
+      </div>
+      <div class="chevron thin"></div>
+    </section>
+
+  </main>
+
+  <footer class="footnote">
+    <strong>Rehnuma</strong> &mdash; a community learning initiative concept for United Bank Limited.<br>
+    Candidate prototype submitted for assessment. Not an official UBL product or service.
+  </footer>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+anthropic>=1.0.0
+pymupdf>=1.25.0
+pydantic>=2.10.0
+python-multipart>=0.0.20
+slowapi>=0.1.9
+python-dotenv>=1.0.1

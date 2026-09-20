@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rehnuma Control Room</title>
+<meta name="description" content="Learner analytics, mastery evidence, configuration and observability for Rehnuma.">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2310131A'/><rect x='6' y='16' width='5' height='10' fill='%2300A878'/><rect x='13' y='10' width='5' height='16' fill='%23FFC402'/><rect x='20' y='6' width='5' height='20' fill='%23E6006E'/></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="shell">
+  <div class="chevron"></div>
+
+  <header class="topbar">
+    <div class="cobrand">
+      <div class="logo-slot">
+        <img id="ublLogo" src="/static/ubl-logo.png" alt="United Bank Limited" hidden>
+        <div class="logo-fallback" id="ublFallback">UBL</div>
+      </div>
+      <div class="presents">Presented by<b>United Bank Limited</b></div>
+    </div>
+
+    <div class="brand">
+      <div class="mark rosette"></div>
+      <div>
+        <div class="wordmark">CONTROL ROOM</div>
+        <div class="eyebrow">Rehnuma &mdash; analytics, evidence &amp; configuration</div>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+    <a class="btn ghost sm" href="/">Learner view</a>
+    <button class="btn sm ghost" id="signOut" type="button" hidden>Sign out</button>
+  </header>
+
+  <!-- ============================ SIGN IN ============================ -->
+  <main class="main" id="loginView" style="grid-template-columns:1fr">
+    <div class="setup">
+      <div class="panel cream">
+        <div class="panel-head"><h2>Administrator sign-in</h2></div>
+        <div class="panel-body">
+          <p class="small" style="margin-top:0">
+            Learner analytics, mastery evidence and the configuration screen are restricted.
+            Sign in to continue.
+          </p>
+          <div class="field">
+            <label for="pw">Password</label>
+            <input type="password" id="pw" autocomplete="current-password">
+          </div>
+          <button class="btn pink" id="signIn" type="button">Sign in</button>
+        </div>
+        <div class="scallop"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================ DASHBOARD ============================ -->
+  <main class="main hidden" id="adminView" style="grid-template-columns:1fr">
+    <div class="col" style="width:100%">
+
+      <!-- headline numbers -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>At a glance</h2>
+          <div class="spacer"></div>
+          <button class="btn sm blue" id="refreshBtn" type="button">Refresh</button>
+          <a class="btn sm green" id="csvBtn" href="/api/report.csv">Export CSV</a>
+        </div>
+        <div class="panel-body">
+          <div class="grid-cards" id="tiles"></div>
+        </div>
+      </section>
+
+      <!-- charts -->
+      <section class="panel">
+        <div class="panel-head"><h2>Mastery &amp; engagement</h2></div>
+        <div class="panel-body">
+          <div class="grid-cards" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+            <div>
+              <div class="eyebrow">Mastery by learner</div>
+              <div class="chart-box"><canvas id="chartMastery"></canvas></div>
+            </div>
+            <div>
+              <div class="eyebrow">Understanding signals detected</div>
+              <div class="chart-box"><canvas id="chartSignals"></canvas></div>
+            </div>
+            <div>
+              <div class="eyebrow">Interaction mix</div>
+              <div class="chart-box"><canvas id="chartMix"></canvas></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- the evidence feed: the proof mastery was inferred, not scored -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Evidence feed</h2>
+          <div class="spacer"></div>
+          <span class="eyebrow">How mastery was inferred &mdash; no tests involved</span>
+        </div>
+        <div class="panel-body">
+          <div class="evidence" id="evidence"></div>
+        </div>
+      </section>
+
+      <!-- learners + outcome report -->
+      <section class="panel">
+        <div class="panel-head"><h2>Learners</h2></div>
+        <div class="panel-body">
+          <div class="table-wrap"><table id="learnerTable"></table></div>
+        </div>
+      </section>
+
+      <section class="panel" id="reportPanel" hidden>
+        <div class="panel-head">
+          <h2 id="reportTitle">Outcome report</h2>
+          <div class="spacer"></div>
+          <button class="btn sm ghost" id="closeReport" type="button">Close</button>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap"><table id="reportTable"></table></div>
+        </div>
+      </section>
+
+      <!-- configuration -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Configuration</h2>
+          <div class="spacer"></div>
+          <span class="eyebrow">Changes apply to the next turn &mdash; no redeploy</span>
+        </div>
+        <div class="panel-body">
+          <div class="grid-cards" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))" id="configFields"></div>
+
+          <div class="mt">
+            <div class="eyebrow">Game mechanics</div>
+            <div class="row mt" id="mechanicsRow"></div>
+          </div>
+
+          <div class="row mt">
+            <button class="btn green" id="saveConfig" type="button">Save configuration</button>
+            <button class="btn ghost sm" id="resetConfig" type="button">Reset to defaults</button>
+          </div>
+        </div>
+        <div class="scallop"></div>
+      </section>
+
+      <!-- observability -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Logs &amp; health</h2>
+          <div class="spacer"></div>
+          <span class="eyebrow" id="healthNote"></span>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap"><table id="eventTable"></table></div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="footnote">
+    <strong>Rehnuma</strong> &mdash; a community learning initiative concept for United Bank Limited.<br>
+    Candidate prototype submitted for assessment. Not an official UBL product or service.
+  </footer>
+</div>
+
+<script src="/static/admin.js"></script>
+</body>
+</html>
