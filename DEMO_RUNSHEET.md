@@ -2,6 +2,20 @@
 
 For the UBL panel. Read this once the night before and once in the car.
 
+**Live URL:** https://rehnuma-4cjj.onrender.com
+**Admin:** https://rehnuma-4cjj.onrender.com/admin
+**Health:** https://rehnuma-4cjj.onrender.com/health
+
+**Measured on the deployed app, with your UBL brief as the content:**
+
+| | |
+|---|---|
+| Cold start (asleep) | **43.5s** - the one number that can ruin the demo |
+| Concept map build | 20.5s |
+| Per turn | 7.3 - 10.8s |
+| Quotes verbatim from source | **21 / 21 (100%)** |
+| Off-source question | refused and flagged, no guess |
+
 ---
 
 ## Pre-flight — 30 minutes before you present
