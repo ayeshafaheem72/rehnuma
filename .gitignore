@@ -5,3 +5,7 @@ __pycache__/
 venv/
 data/*.db
 .DS_Store
+
+# Office lock files (created while a doc is open)
+~$*
+*.tmp

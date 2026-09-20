@@ -40,7 +40,11 @@ DEFAULTS = {
     # --- model ---
     "demo_mode":    False,                # run from templates, no API calls (see app/demo.py)
     "model":        "claude-opus-5",
-    "effort":       "medium",             # low | medium | high | xhigh | max
+    "effort":       "low",                # per-turn reasoning depth: low keeps the
+                                          # conversation responsive; raise for harder material
+    "extraction_effort": "low",           # concept-map build. Measured on the UBL brief:
+                                          # low 18s, medium 23s, high 24s - all 100% verbatim
+                                          # quotes and 9 concepts, so low is the default.
     "max_tokens":   4000,
 
     # --- safety ---
@@ -65,7 +69,8 @@ SCHEMA = [
     ("urdu_transliteration", "bool", None, "Roman Urdu alongside script"),
     ("demo_mode", "bool", None, "Demo fallback (no API)"),
     ("model", "select", ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"], "Model"),
-    ("effort", "select", ["low", "medium", "high", "xhigh"], "Reasoning effort"),
+    ("effort", "select", ["low", "medium", "high", "xhigh"], "Reasoning effort (per turn)"),
+    ("extraction_effort", "select", ["low", "medium", "high"], "Reasoning effort (concept map)"),
     ("max_tokens", "number", (256, 16000, 256), "Max response tokens"),
     ("rate_limit_per_min", "number", (1, 120, 1), "Rate limit / min"),
 ]

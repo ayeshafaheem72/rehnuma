@@ -173,7 +173,7 @@ def build_concept_map(raw_text: str, title: str):
         "Build the concept map for this material."
     )
     return _call(
-        ConceptMap, cfg=cfg, effort="high", max_tokens=8000,
+        ConceptMap, cfg=cfg, effort=cfg["extraction_effort"], max_tokens=8000,
         system=[{"type": "text", "text": CONCEPT_SYSTEM}],
         messages=[{"role": "user", "content": user}],
     )
