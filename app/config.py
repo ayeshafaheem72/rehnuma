@@ -38,6 +38,7 @@ DEFAULTS = {
     "urdu_transliteration": False,        # show roman Urdu alongside script
 
     # --- model ---
+    "demo_mode":    False,                # run from templates, no API calls (see app/demo.py)
     "model":        "claude-opus-5",
     "effort":       "medium",             # low | medium | high | xhigh | max
     "max_tokens":   4000,
@@ -62,6 +63,7 @@ SCHEMA = [
     ("strict_grounding", "bool", None, "Strict grounding"),
     ("require_citations", "bool", None, "Require citations"),
     ("urdu_transliteration", "bool", None, "Roman Urdu alongside script"),
+    ("demo_mode", "bool", None, "Demo fallback (no API)"),
     ("model", "select", ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"], "Model"),
     ("effort", "select", ["low", "medium", "high", "xhigh"], "Reasoning effort"),
     ("max_tokens", "number", (256, 16000, 256), "Max response tokens"),

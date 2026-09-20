@@ -316,7 +316,9 @@ function renderTurn(out) {
 
 $('sendBtn').addEventListener('click', () => send($('sayBox').value));
 $('sayBox').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send($('sayBox').value); }
+  // accept both key names - some environments report "Return" rather than "Enter"
+  const enter = e.key === 'Enter' || e.key === 'Return' || e.keyCode === 13;
+  if (enter && !e.shiftKey) { e.preventDefault(); send($('sayBox').value); }
 });
 
 async function send(message) {
