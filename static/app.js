@@ -129,7 +129,7 @@ function showMap(out) {
   list.appendChild(head);
 
   out.concept_map.concepts.forEach((c, i) => {
-    const row = el('div', 'row');
+    const row = el('div', 'map-row');
     const dot = el('div', 'medallion');
     dot.style.width = dot.style.height = '38px';
     const inner = el('div', 'inner', String(i + 1));
@@ -138,7 +138,7 @@ function showMap(out) {
     dot.appendChild(inner);
     const txt = el('div');
     txt.appendChild(el('div', 'stop-title', c.title));
-    txt.appendChild(el('div', 'small muted', c.summary));
+    txt.appendChild(el('div', 'summary', c.summary));
     row.append(dot, txt);
     list.appendChild(row);
   });
