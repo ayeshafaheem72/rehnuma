@@ -186,6 +186,7 @@ function renderBoard(state) {
   board.textContent = '';
   const concepts = S.conceptMap.concepts;
   const current = state._currentConcept;
+  const justUnlocked = state._newly_unlocked || [];
 
   concepts.forEach((c, i) => {
     const cs = state.concepts[c.id] || { mastery: 0, unlocked: false };
@@ -195,6 +196,7 @@ function renderBoard(state) {
     else if (mastered) cls += 'mastered';
     else cls += 'active';
     if (c.id === current) cls += ' current';
+    if (justUnlocked.includes(c.id)) cls += ' just-unlocked';
 
     const stop = el('div', cls);
     stop.setAttribute('title', c.summary);
@@ -212,13 +214,31 @@ function renderBoard(state) {
     stop.append(med, label);
     board.appendChild(stop);
   });
+
+  // keep the concept being taught in view as the journey moves down the board
+  const active = board.querySelector('.stop.current');
+  if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+const LAST = {};
+function bump(id, value) {
+  const node = $(id);
+  if (!node) return;
+  const chip = node.closest('.stat');
+  if (chip && LAST[id] !== undefined && LAST[id] !== value) {
+    chip.classList.remove('bump');
+    void chip.offsetWidth;            // restart the animation
+    chip.classList.add('bump');
+  }
+  LAST[id] = value;
+  node.textContent = value;
 }
 
 function renderStats(summary) {
-  $('statXp').textContent = summary.xp;
-  $('statStreak').textContent = summary.streak;
-  $('statMastery').textContent = Math.round(summary.overall_mastery * 100) + '%';
-  $('statLang').textContent = (S.cfg ? S.cfg.language : 'en').toUpperCase();
+  bump('statXp', summary.xp);
+  bump('statStreak', summary.streak);
+  bump('statMastery', Math.round(summary.overall_mastery * 100) + '%');
+  bump('statLang', (S.cfg ? S.cfg.language : 'en').toUpperCase());
   $('xpBar').style.width = Math.min(100, (summary.xp % 200) / 2) + '%';
 
   const box = $('badges');
@@ -231,7 +251,7 @@ function renderStats(summary) {
 /* ------------------------------------------------------ conversation */
 
 function addBubble(who, text, cls) {
-  const b = el('div', `bubble ${who}`);
+  const b = el('div', `bubble ${who} enter`);
   b.appendChild(el('div', 'who', cls || (who === 'guide' ? 'Rehnuma' : 'You')));
   const say = el('div', 'say');
   say.textContent = text;
@@ -243,6 +263,7 @@ function addBubble(who, text, cls) {
 
 function renderTurn(out) {
   const b = addBubble('guide', '');
+  if (out.interaction_type === 'teach') b.classList.add('teach-beat');
   const say = b.querySelector('.say');
 
   // mechanic pill
@@ -308,7 +329,8 @@ function renderTurn(out) {
   renderStats(out.summary);
   if (out.latency_ms) $('latencyNote').textContent = (out.latency_ms / 1000).toFixed(1) + 's';
 
-  $('stream').scrollTop = $('stream').scrollHeight;
+  const stream = $('stream');
+  stream.scrollTo({ top: stream.scrollHeight, behavior: 'smooth' });
   if (S.speak) speak(out.message);
 }
 

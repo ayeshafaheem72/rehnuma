@@ -165,6 +165,7 @@ def _turn_payload(turn, learner, cfg):
         "state": learner,
         "summary": state.summary(learner, cfg),
         "newly_unlocked": learner.get("_newly_unlocked", []),
+        "adaptation": state.adaptation(learner, cfg),
     }
 
 
@@ -327,11 +328,36 @@ def _percentile(values, pct):
 
 
 @app.get("/api/dashboard")
-def dashboard(request: Request, _=Depends(security.require_admin)):
+def dashboard(request: Request, _=Depends(security.require_admin),
+              learner: str = "", concept: str = "", signal: str = "", since: str = ""):
+    """Filterable analytics. Every view below narrows to the same filter set, so
+    the numbers, the charts and the evidence feed always agree with each other."""
     cfg = config.current()
     learners = db.list_learners()
     turns = db.all_turns()
     guide_turns = [t for t in turns if t["role"] == "guide"]
+
+    # --- filters -------------------------------------------------------
+    cutoff = 0.0
+    if since in ("1h", "24h", "7d"):
+        cutoff = time.time() - {"1h": 3600, "24h": 86400, "7d": 604800}[since]
+
+    if learner:
+        lid = security.safe_id(learner)
+        learners = [l for l in learners if l["id"] == lid]
+        guide_turns = [t for t in guide_turns if t["learner_id"] == lid]
+    if cutoff:
+        guide_turns = [t for t in guide_turns if (t["created_at"] or 0) >= cutoff]
+        learners = [l for l in learners if (l["updated_at"] or 0) >= cutoff]
+    if concept:
+        cid = security.safe_id(concept)
+        guide_turns = [t for t in guide_turns
+                       if t["concept_id"] == cid
+                       or any(m.get("concept_id") == cid
+                              for m in (t["signals"] or {}).get("mastery_updates", []))]
+    if signal:
+        guide_turns = [t for t in guide_turns
+                       if any(x["name"] == signal for x in (t["signals"] or {}).get("signals", []))]
     latencies = [t["latency_ms"] for t in guide_turns if t["latency_ms"]]
 
     signal_counts = {}
@@ -359,7 +385,13 @@ def dashboard(request: Request, _=Depends(security.require_admin)):
 
     evidence = []
     for l in learners:
-        for e in l["state"].get("signal_log", [])[-20:]:
+        for e in l["state"].get("signal_log", [])[-40:]:
+            if signal and e.get("signal") != signal:
+                continue
+            if concept and e.get("concept_id") != concept:
+                continue
+            if cutoff and (e.get("at", 0) < cutoff):
+                continue
             evidence.append({**e, "learner": l["label"], "learner_id": l["id"]})
     evidence.sort(key=lambda e: e.get("at", 0), reverse=True)
 
@@ -383,6 +415,17 @@ def dashboard(request: Request, _=Depends(security.require_admin)):
         "learners": rows,
         "evidence": evidence[:40],
         "config": cfg,
+        "filters": {
+            "applied": {"learner": learner, "concept": concept,
+                        "signal": signal, "since": since},
+            "learners": [{"id": l["id"], "label": l["label"]} for l in db.list_learners()],
+            "concepts": sorted({c["id"]: c for src in db.list_sources()
+                                for c in json.loads(db.get_source(src["id"])["concept_map"])
+                                .get("concepts", [])}.items()),
+            "signals": llm.SIGNAL_NAMES,
+            "windows": [["", "All time"], ["1h", "Last hour"],
+                        ["24h", "Last 24 hours"], ["7d", "Last 7 days"]],
+        },
     }
 
 
@@ -401,14 +444,19 @@ def learner_report(request: Request, learner_id: str, _=Depends(security.require
 
 
 @app.get("/api/report.csv")
-def report_csv(request: Request, _=Depends(security.require_admin)):
+def report_csv(request: Request, _=Depends(security.require_admin), learner: str = ""):
+    """Export respects the dashboard's learner filter, so what you see is what you get."""
     cfg = config.current()
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["learner_id", "learner", "concept_id", "concept", "baseline_mastery",
                 "current_mastery", "gain", "exposures", "errors", "self_corrections",
                 "hints_used", "status"])
-    for l in db.list_learners():
+    rows_src = db.list_learners()
+    if learner:
+        lid = security.safe_id(learner)
+        rows_src = [l for l in rows_src if l["id"] == lid]
+    for l in rows_src:
         for r in state.outcome_report(l["state"], cfg):
             w.writerow([l["id"], l["label"], r["concept_id"], r["concept"], r["baseline"],
                         r["current"], r["gain"], r["exposures"], r["errors"],

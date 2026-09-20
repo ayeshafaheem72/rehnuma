@@ -21,6 +21,7 @@ const GRID      = 'rgba(169,154,124,.18)';
 
 const charts = {};
 let DATA = null;
+const FILTERS = { learner: '', concept: '', signal: '', since: '' };
 
 function toast(msg, bad) {
   const t = el('div', 'toast' + (bad ? ' bad' : ''), msg);
@@ -84,9 +85,17 @@ $('refreshBtn').addEventListener('click', load);
 
 /* --------------------------------------------------------------- load */
 
+function filterQuery() {
+  const q = new URLSearchParams();
+  Object.entries(FILTERS).forEach(([k, v]) => { if (v) q.set(k, v); });
+  const s = q.toString();
+  return s ? '?' + s : '';
+}
+
 async function load() {
   try {
-    DATA = await api('/api/dashboard');
+    DATA = await api('/api/dashboard' + filterQuery());
+    renderFilters(DATA.filters);
     const health = await api('/health');
     renderTiles(DATA, health);
     renderCharts(DATA);
@@ -99,6 +108,46 @@ async function load() {
       + (health.api_key_present ? '' : ' · NO API KEY');
   } catch (e) { toast(e.message, true); }
 }
+
+/* ------------------------------------------------------------ filters */
+
+function fillSelect(id, key, options, allLabel) {
+  const sel = $(id);
+  if (!sel) return;
+  sel.textContent = '';
+  const blank = el('option', null, allLabel);
+  blank.value = '';
+  sel.appendChild(blank);
+  options.forEach(([value, label]) => {
+    const o = el('option', null, label);
+    o.value = value;
+    if (FILTERS[key] === value) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.onchange = () => { FILTERS[key] = sel.value; load(); };
+  const wrap = sel.closest('.filter');
+  if (wrap) wrap.classList.toggle('active', !!FILTERS[key]);
+}
+
+function renderFilters(f) {
+  if (!f) return;
+  fillSelect('fLearner', 'learner', f.learners.map(l => [l.id, l.label]), 'All learners');
+  fillSelect('fConcept', 'concept', f.concepts.map(([id, c]) => [id, `${id} — ${c.title}`]),
+             'All concepts');
+  fillSelect('fSignal', 'signal', f.signals.map(n => [n, n.replace(/_/g, ' ')]), 'All signals');
+  fillSelect('fSince', 'since', f.windows.filter(w => w[0]), 'All time');
+
+  const on = Object.entries(FILTERS).filter(([, v]) => v);
+  $('filterNote').textContent = on.length
+    ? `${on.length} filter${on.length > 1 ? 's' : ''} applied — every view below is narrowed`
+    : 'Showing everything';
+  $('csvBtn').href = '/api/report.csv' + (FILTERS.learner ? '?learner=' + FILTERS.learner : '');
+}
+
+$('fClear').addEventListener('click', () => {
+  Object.keys(FILTERS).forEach(k => { FILTERS[k] = ''; });
+  load();
+});
 
 /* -------------------------------------------------------------- tiles */
 

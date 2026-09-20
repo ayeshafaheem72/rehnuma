@@ -138,9 +138,87 @@ def apply_turn(state: dict, turn, cfg: dict, concept_map: dict) -> dict:
     if any(c["mastery"] >= cfg["mastery_mastered_at"] for c in concepts.values()):
         award("mastered_one")
 
+    # rolling window of measured outcomes - this is what drives adaptation
+    positives = sum(1 for sg in turn.signals
+                    if sg.detected and sg.name != "hint_dependency")
+    state.setdefault("recent", []).append({
+        "hinted": bool(hinted),
+        "positives": positives,
+        "delta": round(sum(u.delta for u in turn.mastery_updates), 3),
+        "kind": turn.interaction_type,
+    })
+    state["recent"] = state["recent"][-8:]
+
     state["updated_at"] = time.time()
     state["_newly_unlocked"] = newly_unlocked
     return state
+
+
+LEVEL_BASE = {"beginner": 2, "intermediate": 3, "advanced": 4}
+
+
+def adaptation(state: dict, cfg: dict) -> dict:
+    """Turn measured performance into concrete teaching parameters.
+
+    This is the adaptation mechanism, deliberately kept in code rather than left to
+    the model's discretion: the same inputs always produce the same instruction, and
+    every decision carries the reason that produced it, so it can be audited and
+    demonstrated rather than asserted.
+    """
+    recent = state.get("recent", [])[-5:]
+    n = len(recent)
+    hint_rate = (sum(1 for r in recent if r["hinted"]) / n) if n else 0.0
+    win_rate = (sum(1 for r in recent if r["positives"] >= 2 and not r["hinted"]) / n) if n else 0.0
+    streak = state.get("streak", 0)
+
+    base = LEVEL_BASE.get(cfg.get("learner_level", "beginner"), 2)
+    curve = cfg.get("difficulty_curve", "adaptive")
+
+    step, why = 0, []
+    if n >= 2:
+        if hint_rate >= 0.40:
+            step -= 1
+            why.append(f"needed hints on {int(hint_rate*100)}% of recent turns")
+        if win_rate >= 0.60 and hint_rate == 0:
+            step += 1
+            why.append(f"answered {int(win_rate*100)}% of recent turns strongly, unaided")
+        if streak >= 4:
+            step += 1
+            why.append(f"{streak} turns in a row without a hint")
+    if curve == "gentle":
+        step = min(step, 0)
+    elif curve == "steep":
+        step += 1
+
+    difficulty = max(1, min(5, base + step))
+
+    if hint_rate >= 0.40:
+        scaffolding, s_why = "high", "break the idea into steps and give a worked example first"
+    elif hint_rate <= 0.15 and streak >= 3:
+        scaffolding, s_why = "low", "drop the scaffolding, ask directly, let them do the work"
+    else:
+        scaffolding, s_why = "normal", "explain, then ask"
+
+    pace = cfg.get("pace", "normal")
+    if n >= 3:
+        if hint_rate >= 0.40:
+            pace = "slow"
+        elif streak >= 4 and hint_rate == 0:
+            pace = "fast"
+
+    return {
+        "difficulty_target": difficulty,
+        "scaffolding": scaffolding,
+        "scaffolding_instruction": s_why,
+        "pace": pace,
+        "measured": {
+            "turns_considered": n,
+            "hint_rate": round(hint_rate, 2),
+            "strong_answer_rate": round(win_rate, 2),
+            "streak": streak,
+        },
+        "why": why or ["not enough turns yet - using the configured baseline"],
+    }
 
 
 def summary(state: dict, cfg: dict) -> dict:

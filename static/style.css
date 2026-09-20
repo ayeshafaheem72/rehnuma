@@ -10,9 +10,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
 
 :root {
-  --ink:        #10131A;
-  --ink-2:      #1A202B;
-  --ink-3:      #262E3C;
+  --ink:        #081426;   /* deep navy, biased toward the UBL mark */
+  --ink-2:      #0F2138;
+  --ink-3:      #1B3552;
+
+  --ubl:        #0070B8;   /* sampled from the logo - carries structure */
+  --ubl-lt:     #2199E8;
+  --ubl-deep:   #004E80;
   --chrome:     #F2E9D8;
   --chrome-2:   #E2D4B7;
   --chrome-dim: #A99A7C;
@@ -44,14 +48,14 @@ html, body { height: 100%; }
 body {
   margin: 0;
   font-family: var(--body);
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: 16.5px;
+  line-height: 1.6;
   color: var(--chrome);
   background: var(--ink);
   background-image:
-    radial-gradient(circle at 12% 8%,  rgba(230,0,110,.16), transparent 42%),
-    radial-gradient(circle at 88% 4%,  rgba(0,180,216,.14), transparent 40%),
-    radial-gradient(circle at 50% 96%, rgba(255,196,2,.10), transparent 45%);
+    radial-gradient(circle at 85% 2%,  rgba(0,112,184,.38), transparent 48%),
+    radial-gradient(circle at 10% 10%, rgba(230,0,110,.14), transparent 44%),
+    radial-gradient(circle at 50% 98%, rgba(255,196,2,.10), transparent 46%);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
@@ -164,10 +168,10 @@ h1, h2, h3, .display {
 .main {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
-  gap: 18px;
-  padding: 18px var(--gutter) 28px;
-  max-width: 1400px;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 22px;
+  padding: 22px var(--gutter) 32px;
+  max-width: 1560px;
   width: 100%;
   margin: 0 auto;
   align-items: start;
@@ -187,13 +191,13 @@ h1, h2, h3, .display {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 14px;
-  background: var(--ink-3);
+  padding: 13px 16px;
+  background: linear-gradient(180deg, var(--ubl-deep), var(--ink-3));
   border-bottom: var(--line-light);
 }
 .panel.cream .panel-head { background: var(--chrome-2); border-bottom-color: var(--ink); }
-.panel-head h2 { font-size: 15px; letter-spacing: 0; }
-.panel-body { padding: 14px; }
+.panel-head h2 { font-size: 17px; letter-spacing: 0; }
+.panel-body { padding: 18px; }
 
 /* ----------------------------------------------------------------- stats */
 
@@ -210,7 +214,7 @@ h1, h2, h3, .display {
   color: var(--ink);
   font-family: var(--mono);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
   white-space: nowrap;
 }
 .stat .label {
@@ -226,7 +230,7 @@ h1, h2, h3, .display {
 
 /* XP meter - snaps and overshoots when it fills */
 .xp-meter {
-  height: 15px;
+  height: 18px;
   border: var(--line);
   background: var(--ink-3);
   box-shadow: var(--pop-sm);
@@ -250,10 +254,11 @@ h1, h2, h3, .display {
 .board::before {
   content: "";
   position: absolute;
-  left: 30px; top: 18px; bottom: 18px;
+  left: 35px; top: 18px; bottom: 18px;
   width: 6px;
   background: repeating-linear-gradient(180deg,
-    var(--chrome-dim) 0 10px, transparent 10px 20px);
+    var(--ubl-lt) 0 12px, transparent 12px 22px);
+  opacity: .55;
   z-index: 0;
 }
 
@@ -261,7 +266,7 @@ h1, h2, h3, .display {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 62px 1fr;
+  grid-template-columns: 74px 1fr;
   align-items: center;
   gap: 12px;
   padding: 7px 0;
@@ -276,7 +281,7 @@ h1, h2, h3, .display {
 
 .medallion {
   position: relative;
-  width: 56px; height: 56px;
+  width: 66px; height: 66px;
   border: var(--line);
   box-shadow: var(--pop-sm);
   display: grid;
@@ -286,7 +291,7 @@ h1, h2, h3, .display {
   flex: none;
 }
 .medallion .inner {
-  width: 38px; height: 38px;
+  width: 46px; height: 46px;
   border-radius: 50%;
   border: 2px solid var(--ink);
   display: grid;
@@ -319,7 +324,7 @@ h1, h2, h3, .display {
 .stop-title {
   font-family: var(--display);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15.5px;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -345,8 +350,8 @@ h1, h2, h3, .display {
   flex-direction: column;
   gap: 16px;
   padding: 16px;
-  min-height: 300px;
-  max-height: min(62vh, 640px);
+  min-height: 340px;
+  max-height: min(66vh, 720px);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -362,10 +367,12 @@ h1, h2, h3, .display {
 }
 
 .bubble .say {
-  padding: 13px 15px;
+  padding: 17px 19px;
   border: var(--line);
   box-shadow: var(--pop-sm);
   white-space: pre-wrap;
+  font-size: 16.5px;
+  line-height: 1.62;
   overflow-wrap: anywhere;
 }
 .bubble.guide   .say { background: var(--chrome); color: var(--ink); }
@@ -409,7 +416,7 @@ h1, h2, h3, .display {
   align-items: flex-start;
   gap: 10px;
   text-align: left;
-  padding: 11px 13px;
+  padding: 14px 16px;
   font: inherit;
   font-weight: 600;
   color: var(--ink);
@@ -855,3 +862,123 @@ td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
   line-height: 1.7;
 }
 .footnote strong { color: var(--chrome); }
+
+/* =====================================================================
+   MOTION
+   The experience is a journey, so beats should arrive rather than appear.
+   Prezi's trick is depth: things come toward you from further back. Here
+   each beat scales up from slightly behind the plane and settles.
+   All of it is disabled under prefers-reduced-motion (see below).
+   ===================================================================== */
+
+@keyframes beat-in {
+  0%   { opacity: 0; transform: translateY(18px) scale(.94); }
+  60%  { opacity: 1; transform: translateY(-3px) scale(1.012); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.bubble.enter { animation: beat-in .46s cubic-bezier(.22,1.1,.36,1) both; }
+
+/* a teach beat is the calm one - it arrives more gently and reads wider */
+@keyframes teach-in {
+  0%   { opacity: 0; transform: scale(.965); filter: blur(2px); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+.bubble.teach-beat.enter { animation: teach-in .6s cubic-bezier(.2,.9,.3,1) both; }
+.bubble.teach-beat { max-width: 100%; }
+.bubble.teach-beat .say {
+  background: var(--chrome);
+  border-left: 9px solid var(--ubl);
+  font-size: 17.5px;
+  line-height: 1.68;
+}
+
+/* the mechanic pills, including the new teach beat */
+.mechanic.teach {
+  background: var(--ubl);
+  color: #fff;
+  letter-spacing: .14em;
+}
+
+/* the board: the active stop lifts toward the reader */
+.stop { transition: transform .3s cubic-bezier(.2,1.2,.4,1); }
+.stop.current { transform: translateX(6px) scale(1.035); transform-origin: left center; }
+.stop.mastered .medallion { transition: background .4s ease; }
+
+/* a concept unlocking should feel like ground opening up */
+@keyframes unlock-pop {
+  0%   { transform: scale(.55) rotate(-16deg); opacity: 0; }
+  55%  { transform: scale(1.22) rotate(5deg);  opacity: 1; }
+  100% { transform: scale(1) rotate(0);        opacity: 1; }
+}
+.stop.just-unlocked .medallion { animation: unlock-pop .62s cubic-bezier(.2,1.4,.4,1) both; }
+
+/* depth: panels sit on the page rather than in it */
+.panel {
+  box-shadow: 0 2px 0 rgba(0,0,0,.5), 8px 10px 0 rgba(0,0,0,.34),
+              0 0 0 1px rgba(33,153,232,.14);
+}
+
+/* choices stagger in, so a fork reads as a set of options appearing */
+@keyframes choice-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.choices .choice { animation: choice-in .34s ease both; }
+.choices .choice:nth-child(1) { animation-delay: .06s; }
+.choices .choice:nth-child(2) { animation-delay: .14s; }
+.choices .choice:nth-child(3) { animation-delay: .22s; }
+.choices .choice:nth-child(4) { animation-delay: .30s; }
+
+/* citations fade up after the text has been read */
+@keyframes cite-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+.cites .cite { animation: cite-in .3s ease both; animation-delay: .38s; }
+
+/* the stat chips react when their number changes */
+@keyframes chip-bump {
+  0%,100% { transform: scale(1); }
+  40%     { transform: scale(1.16); }
+}
+.stat.bump { animation: chip-bump .42s cubic-bezier(.3,1.5,.4,1); }
+
+/* mastery bars sweep rather than jump */
+.mastery-bar > span {
+  transition: width .7s cubic-bezier(.2,1.1,.3,1);
+  background: linear-gradient(90deg, var(--ubl-lt), var(--sabz));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble.enter, .bubble.teach-beat.enter, .choices .choice,
+  .cites .cite, .stop.just-unlocked .medallion, .stat.bump {
+    animation: none !important;
+  }
+  .stop.current { transform: none; }
+}
+
+
+/* ------------------------------------------------------- dashboard filters */
+
+.filter-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.filter {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 165px;
+  flex: 1 1 165px;
+}
+.filter > span {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--chrome-dim);
+}
+.filter select { width: 100%; }
+.filter-row .btn { flex: 0 0 auto; }
+.filter.active > span { color: var(--zard); }
+.filter.active select { border-color: var(--zard); box-shadow: 3px 3px 0 var(--zard); }

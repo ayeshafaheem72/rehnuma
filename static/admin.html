@@ -60,6 +60,24 @@
   <main class="main hidden" id="adminView" style="grid-template-columns:1fr">
     <div class="col" style="width:100%">
 
+      <!-- filters: one row, above the numbers, applying to every view below -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Filters</h2>
+          <div class="spacer"></div>
+          <span class="eyebrow" id="filterNote">Showing everything</span>
+        </div>
+        <div class="panel-body">
+          <div class="filter-row">
+            <label class="filter"><span>Learner</span><select id="fLearner"></select></label>
+            <label class="filter"><span>Concept</span><select id="fConcept"></select></label>
+            <label class="filter"><span>Signal</span><select id="fSignal"></select></label>
+            <label class="filter"><span>Period</span><select id="fSince"></select></label>
+            <button class="btn sm ghost" id="fClear" type="button">Clear</button>
+          </div>
+        </div>
+      </section>
+
       <!-- headline numbers -->
       <section class="panel">
         <div class="panel-head">

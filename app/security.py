@@ -84,6 +84,7 @@ def safe_id(value: str) -> str:
 # --------------------------------------------------------------- headers
 
 SECURITY_HEADERS = {
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
