@@ -20,7 +20,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 
-PROJ = r"C:\Users\Admin\OneDrive - InterSec, Inc\United Bank Limited"
+PROJ = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(PROJ, "Rehnuma_UBL_Presentation.pptx")
 LOGO = os.path.join(PROJ, "static", "ubl-logo.png")
 
