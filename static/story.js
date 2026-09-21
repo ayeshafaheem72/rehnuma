@@ -275,7 +275,8 @@
     let y = A.y + 8, k = 0;
     const big = items.find(it => /\d/.test(it.value || ''));
     if (big) {
-      g.append(txt(x0, y + 50, big.value, { size: 52, weight: 800, font: 'display', anchor, fill: c.ac.deep, rtl: c.rtl, pop: k++ }));
+      // digits stay in the Latin face even beside Urdu: Nastaliq numerals are tiny
+      g.append(txt(x0, y + 50, big.value, { size: 52, weight: 800, font: 'display', anchor, fill: c.ac.deep, rtl: false, pop: k++ }));
       y += 66;
     }
     items.filter(it => it !== big).slice(0, 3).forEach(it => {

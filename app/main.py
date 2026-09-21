@@ -18,7 +18,7 @@ import time
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse, RedirectResponse,
                                StreamingResponse)
 from fastapi.staticfiles import StaticFiles
@@ -125,7 +125,27 @@ def _too_big(request: Request, limit: int):
                             "Please upload a smaller one.")
 
 
-def _build_source(text: str, title: str, truncated: bool):
+def _learner_prefs(language: str = "", learner_level: str = "", constraints: str = "") -> dict:
+    """The choices a learner made on the setup screen, validated. Empty when they made none."""
+    chosen = {k: v for k, v in (("language", language), ("learner_level", learner_level),
+                                ("constraints", constraints)) if v}
+    try:
+        return config.validate(chosen) if chosen else {}
+    except config.ConfigError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+
+
+def _cfg_for(prefs: dict) -> dict:
+    """Settings as they will apply to a learner who chose `prefs`, so work that is done
+    ahead of their session (the story) is done in their language, not the default one."""
+    base = config.current()
+    if not prefs:
+        return base
+    st = {"prefs": prefs, "prefs_at": {k: time.time() for k in prefs}}
+    return state.effective(base, st, config.updated_at())
+
+
+def _build_source(text: str, title: str, truncated: bool, prefs: dict | None = None):
     cfg = config.current()
     try:
         payload, usage, latency = llm.build_concept_map(text, title)
@@ -146,7 +166,7 @@ def _build_source(text: str, title: str, truncated: bool):
         "tokens_in": u["in"], "tokens_out": u["out"]})
     if cfg["story_intro"]:
         # written in the background while the learner reads the map and picks a mode
-        storycache.prefetch(sid, payload, cfg)
+        storycache.prefetch(sid, payload, _cfg_for(prefs or {}))
     return {"source_id": sid, "concept_map": public_map(payload), "latency_ms": latency,
             "chars": len(text), "truncated": truncated, "title": title,
             "grounding": payload.get("grounding")}
@@ -154,7 +174,10 @@ def _build_source(text: str, title: str, truncated: bool):
 
 @app.post("/api/source/upload")
 @limiter.limit("10/minute")
-async def upload_source(request: Request, file: UploadFile = File(...)):
+async def upload_source(request: Request, file: UploadFile = File(...),
+                        language: str = Form(""), learner_level: str = Form(""),
+                        constraints: str = Form("")):
+    prefs = _learner_prefs(language, learner_level, constraints)
     limit = min(security.MAX_UPLOAD_BYTES, config.current()["max_upload_mb"] * 1_048_576)
     _too_big(request, limit)
     data = await file.read()
@@ -167,12 +190,15 @@ async def upload_source(request: Request, file: UploadFile = File(...)):
     except ingest.IngestError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
     title = security.clean_text(ingest.title_from(file.filename, text), 120) or "Untitled"
-    return await run_in_threadpool(_build_source, text, title, truncated)
+    return await run_in_threadpool(_build_source, text, title, truncated, prefs)
 
 
 class PasteIn(BaseModel):
     title: str = ""
     text: str
+    language: str = ""
+    learner_level: str = ""
+    constraints: str = ""
 
 
 @app.post("/api/source/paste")
@@ -184,12 +210,16 @@ def paste_source(request: Request, body: PasteIn):
     except ingest.IngestError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
     title = security.clean_text(body.title, 120) or ingest.title_from("", text)
-    return _build_source(text, title, truncated)
+    return _build_source(text, title, truncated,
+                         _learner_prefs(body.language, body.learner_level, body.constraints))
 
 
 class UrlIn(BaseModel):
     url: str
     title: str = ""
+    language: str = ""
+    learner_level: str = ""
+    constraints: str = ""
 
 
 @app.post("/api/source/url")
@@ -201,7 +231,29 @@ def url_source(request: Request, body: UrlIn):
     except ingest.IngestError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
     title = security.clean_text(body.title, 120) or ingest.title_from("", text)
-    return _build_source(text, title, truncated)
+    return _build_source(text, title, truncated,
+                         _learner_prefs(body.language, body.learner_level, body.constraints))
+
+
+class PrefetchIn(BaseModel):
+    language: str = ""
+    learner_level: str = ""
+    constraints: str = ""
+
+
+@app.post("/api/source/{source_id}/prefetch")
+@limiter.limit("20/minute")
+def prefetch_story(request: Request, source_id: str, body: PrefetchIn):
+    """The learner changed language, level or limit after the map was built: start writing
+    the story for that now, so it is waiting when they press Start."""
+    sid = security.safe_id(source_id)
+    src = db.get_source(sid)
+    if not src:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That source no longer exists.")
+    cfg = _cfg_for(_learner_prefs(body.language, body.learner_level, body.constraints))
+    if cfg["story_intro"]:
+        storycache.prefetch(sid, json.loads(src["concept_map"]), cfg)
+    return {"ok": True}
 
 
 @app.get("/api/sources")
@@ -313,15 +365,10 @@ def start_session(request: Request, body: StartIn):
     st = state.new_state(cmap)
     # how this learner wants to be taught - the prompt layer reads it off the state
     st["mode"] = body.mode if body.mode in MODES else base["default_mode"]
-    chosen = {k: v for k, v in (("language", body.language),
-                                ("learner_level", body.learner_level),
-                                ("constraints", body.constraints)) if v}
+    chosen = _learner_prefs(body.language, body.learner_level, body.constraints)
     if chosen:
-        try:
-            st["prefs"] = config.validate(chosen)
-        except config.ConfigError as e:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
-        st["prefs_at"] = {k: time.time() for k in st["prefs"]}
+        st["prefs"] = chosen
+        st["prefs_at"] = {k: time.time() for k in chosen}
     cfg = state.effective(base, st, config.updated_at())
     st["language"] = cfg["language"]
 

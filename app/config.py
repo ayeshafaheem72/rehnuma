@@ -58,6 +58,8 @@ DEFAULTS = {
     "effort":       "low",                # per-turn reasoning depth: low keeps the
                                           # conversation responsive; raise for harder material
     "extraction_effort": "low",           # concept-map and story build
+    "story_model":  "claude-sonnet-5",    # the story is narration, not judgement: a faster model
+                                          # writes it in about half the time (Urdu especially)
     "max_tokens":   4000,
 
     # --- safety ---
@@ -94,6 +96,7 @@ SCHEMA = [
     ("urdu_transliteration", "bool", None, "Roman Urdu alongside script"),
     ("demo_mode", "bool", None, "Demo fallback (no API)"),
     ("model", "select", ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"], "Model"),
+    ("story_model", "select", ["claude-sonnet-5", "claude-opus-5", "claude-haiku-4-5"], "Model for the story"),
     ("effort", "select", ["low", "medium", "high", "xhigh"], "Reasoning effort (per turn)"),
     ("extraction_effort", "select", ["low", "medium", "high"], "Reasoning effort (map and story)"),
     ("max_tokens", "number", (256, 16000, 256), "Max response tokens"),

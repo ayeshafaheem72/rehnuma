@@ -348,12 +348,13 @@ stop to stop. Every scene has a line of narration and one drawing.
 - One protagonist with a first name that fits the subject's world and the learner's language
   (a Pakistani name for Urdu or mixed). Something is at stake for them, each scene moves it
   forward, and the last scene leaves them somewhere better because of what they now understand.
-- 5 to 7 scenes, following the concept map's order. Each scene carries one concept
-  (concept_id). Never more scenes than concepts.
+- 6 scenes in English, exactly 5 in Urdu or mixed (Urdu takes several times longer to
+  write, and a learner is waiting), following the concept map's order. Each scene carries
+  one concept (concept_id). Never more scenes than concepts.
 - Every scene, character and example comes from the world of the <subject>. Never borrow a
   setting from an unrelated domain because it is familiar to you.
-- narration: two or three short sentences, 45 words at most, present tense, plain prose.
-  No markdown, no emoji, no headings.
+- narration: two short sentences, 40 words at most (30 in Urdu), present tense, plain
+  prose. No markdown, no emoji, no headings.
 - GROUNDING. You may invent the characters and the scenery. You may never invent a fact, a
   figure, a rule or a claim about the subject: every fact in the narration must come from
   the source quotes. quote_id is the quote the scene's main fact rests on and must be an id
@@ -562,7 +563,8 @@ def build_story(concept_map: dict, cfg: dict):
         "<task>Tell the story of this subject as illustrated scenes.</task>",
     ])
     story, usage, latency = _call(
-        Storyline, cfg=cfg, effort=cfg["extraction_effort"], max_tokens=5000, timeout=75.0,
+        Storyline, cfg=dict(cfg, model=cfg.get("story_model") or cfg["model"]),
+        effort=cfg["extraction_effort"], max_tokens=5000, timeout=75.0,
         system=[{"type": "text", "text": STORY_SYSTEM}],
         messages=[{"role": "user", "content": user}],
     )

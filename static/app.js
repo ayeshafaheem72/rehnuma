@@ -143,12 +143,32 @@ $('sampleBtn').addEventListener('click', () => {
 
 /* who is learning: language, level and any limit. Whatever the learner touches is sent with
    the session; whatever they leave alone stays on the admin's current defaults. */
-const langPick = radioGroup($('langPick'), 'lang', (v) => { S.touched.language = v; });
-$('levelPick').addEventListener('change', () => { S.touched.learner_level = $('levelPick').value; });
+const langPick = radioGroup($('langPick'), 'lang', (v) => { S.touched.language = v; warmStory(); });
+$('levelPick').addEventListener('change', () => { S.touched.learner_level = $('levelPick').value; warmStory(); });
+$('constraintInput').addEventListener('change', () => {
+  const v = $('constraintInput').value.trim();
+  if (v) S.touched.constraints = v; else delete S.touched.constraints;
+  warmStory();
+});
 $('constraintInput').addEventListener('input', () => {
   const v = $('constraintInput').value.trim();
   if (v) S.touched.constraints = v; else delete S.touched.constraints;
 });
+
+/* The story takes as long to write as a reply does, and it starts as soon as the map exists.
+   If the learner changes language, level or limit after that, start writing the right one now
+   so it is waiting when they press Start rather than making them wait for it. */
+let warmTimer = 0;
+function warmStory() {
+  if (!S.sourceId || S.learnerId) return;
+  clearTimeout(warmTimer);
+  warmTimer = setTimeout(() => {
+    fetch(`/api/source/${S.sourceId}/prefetch`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(S.touched),
+    }).catch(() => { /* an optimisation; start still works without it */ });
+  }, 500);
+}
 
 async function loadDefaults() {
   try {
@@ -183,13 +203,14 @@ async function build() {
     if (tab === 'File') {
       const fd = new FormData();
       fd.append('file', file);
+      Object.entries(S.touched).forEach(([k, v]) => fd.append(k, v));
       out = await api('/api/source/upload', { method: 'POST', body: fd });
     } else if (tab === 'Url') {
-      out = await api('/api/source/url', { method: 'POST', body: JSON.stringify({ url }) });
+      out = await api('/api/source/url', { method: 'POST', body: JSON.stringify(Object.assign({ url }, S.touched)) });
     } else {
       out = await api('/api/source/paste', {
         method: 'POST',
-        body: JSON.stringify({ title: $('titleInput').value, text: pasted }),
+        body: JSON.stringify(Object.assign({ title: $('titleInput').value, text: pasted }, S.touched)),
       });
     }
     S.sourceId = out.source_id;
@@ -293,7 +314,14 @@ async function start() {
   $('startBtn').disabled = true;
   await loadDefaults();                       // a default the admin changed a moment ago
   const wantStory = !!(S.cfg && S.cfg.story_intro);
-  $('startBtn').textContent = wantStory ? 'Painting your story...' : 'Setting the scene...';
+  // The story may still be being written. These lines describe what is happening in that
+  // time; they are not a progress bar, because nothing here can honestly report progress.
+  const lines = wantStory
+    ? ['Choosing who the story is about...', 'Drawing the road...', 'Writing the scenes...', 'Choosing the pictures...']
+    : ['Setting the scene...'];
+  let li = 0;
+  $('startBtn').textContent = lines[0];
+  const rotate = setInterval(() => { li = (li + 1) % lines.length; $('startBtn').textContent = lines[li]; }, 2600);
   try {
     const out = await api('/api/session/start', {
       method: 'POST',
@@ -318,6 +346,7 @@ async function start() {
   } catch (e) {
     toast(e.message, true);
   } finally {
+    clearInterval(rotate);
     S.busy = false;
     $('startBtn').disabled = false;
     $('startBtn').textContent = (S.cfg && S.cfg.story_intro === false) ? 'Start learning' : 'Start the story';
