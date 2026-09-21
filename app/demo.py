@@ -80,6 +80,49 @@ def build_concept_map(raw_text: str, title: str):
     return cmap, usage, 180
 
 
+# ---------------------------------------------------------------- story
+
+_STORY_LAYOUTS = ["hero", "steps", "checklist", "cycle", "shield", "timeline"]
+_STORY_ICONS = ["book", "bulb", "target", "shield", "chart", "flag", "star"]
+_ACCENTS = ["pink", "yellow", "green", "blue", "red"]
+
+
+def _phrases(text: str):
+    """Short labels for a drawing, cut from a summary at its natural joints."""
+    bits = [p.strip(" ,;:.-") for p in re.split(r"[,;:]| - | and |،", text)]
+    return [p for p in bits if 3 < len(p) <= 44][:4]
+
+
+def build_story(cmap: dict, cfg: dict) -> dict:
+    """The story with no model behind it: one scene per concept, narrated with the
+    concept's own summary and drawn from labels cut out of it. Plainer than the real
+    thing, but built from the upload, so it never says anything the source does not."""
+    scenes = []
+    for i, c in enumerate(cmap["concepts"][:6]):
+        parts = _phrases(c["summary"])
+        layout = _STORY_LAYOUTS[i % len(_STORY_LAYOUTS)]
+        if layout != "hero" and len(parts) < 3:
+            layout = "hero"
+        scenes.append({
+            "concept_id": c["id"],
+            "title": c["title"],
+            "narration": c["summary"],
+            "layout": layout,
+            "icon": _STORY_ICONS[i % len(_STORY_ICONS)],
+            "accent": _ACCENTS[i % len(_ACCENTS)],
+            "items": [{"label": p, "value": ""} for p in parts[:3 if layout == "hero" else 4]],
+            "quote_id": c["quotes"][0]["id"],
+        })
+    return {
+        "title": cmap.get("title", "Your story"),
+        "character": "",
+        "setting": cmap.get("subject", ""),
+        "closing": ("چلیں، اب خود آزماتے ہیں۔" if cfg.get("language") == "ur"
+                    else "Now let's put it to use."),
+        "scenes": scenes,
+    }
+
+
 # --------------------------------------------------------------- turns
 
 OPENERS = {

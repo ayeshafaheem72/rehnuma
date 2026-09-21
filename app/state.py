@@ -15,7 +15,12 @@ BADGES = {
     "mastered_one": "Brought a concept to mastery",
     "boss_slayer":  "Cleared a boss challenge",
     "curious":      "Asked a question that ran ahead of the lesson",
+    "storyteller":  "Followed the whole story",
 }
+
+# The settings a learner may override for themselves from their own screen. Whichever was
+# changed most recently - the learner's choice or the admin's - is the one that applies.
+PREF_KEYS = ("language", "learner_level", "tone", "pace", "constraints", "learner_profile")
 
 
 def new_state(concept_map: dict) -> dict:
@@ -29,6 +34,7 @@ def new_state(concept_map: dict) -> dict:
             "errors": 0,
             "self_corrections": 0,
             "hints_used": 0,
+            "last_turn": 0,           # when it was last touched, for scheduling a review
             "unlocked": not c.get("prerequisites"),
         }
     return {
@@ -48,8 +54,61 @@ def _clamp(v, lo=0.0, hi=1.0):
     return max(lo, min(hi, v))
 
 
-def apply_turn(state: dict, turn, cfg: dict, concept_map: dict) -> dict:
-    """Fold one guide turn into the learner state. `turn` is an llm.GuideTurn."""
+def effective(cfg: dict, st: dict, cfg_at: dict | None = None) -> dict:
+    """The settings this learner is actually taught under: the admin's, with their own
+    changes laid on top - unless the admin changed that setting after they did."""
+    prefs = st.get("prefs") or {}
+    if not prefs:
+        return cfg
+    out = dict(cfg)
+    for k, v in prefs.items():
+        if k in PREF_KEYS and (cfg_at or {}).get(k, 0) <= (st.get("prefs_at") or {}).get(k, 0):
+            out[k] = v
+    return out
+
+
+def public_state(st: dict) -> dict:
+    """What the tutor is shown. The evidence log and the rest of the bookkeeping stay
+    behind: they are for the dashboard, and sending them every turn only costs tokens."""
+    return {
+        "concepts": {cid: {k: c[k] for k in ("title", "mastery", "exposures", "unlocked",
+                                             "hints_used")}
+                     for cid, c in st.get("concepts", {}).items()},
+        "xp": st.get("xp", 0), "streak": st.get("streak", 0), "turns": st.get("turns", 0),
+    }
+
+
+def _unlocks(state: dict, cfg: dict, concept_map: dict) -> list:
+    """Open every concept whose prerequisites are understood. A tour only asks that they
+    have been visited: its point is the shape of the subject, not depth in one corner."""
+    threshold = cfg["mastery_unlock_threshold"]
+    touring = state.get("mode") == "tour"
+    concepts = state["concepts"]
+    newly = []
+    by_id = {c["id"]: c for c in concept_map.get("concepts", [])}
+    for cid, c in concepts.items():
+        if c["unlocked"]:
+            continue
+        prereqs = by_id.get(cid, {}).get("prerequisites", [])
+        ready = all(
+            (concepts.get(p, {}).get("exposures", 0) >= 1) if touring
+            else (concepts.get(p, {}).get("mastery", 0) >= threshold)
+            for p in prereqs)
+        if ready:
+            c["unlocked"] = True
+            newly.append(cid)
+    return newly
+
+
+def apply_turn(state: dict, turn, cfg: dict, concept_map: dict, opener: bool = False) -> dict:
+    """Fold one guide turn into the learner state. `turn` is an llm.GuideTurn.
+
+    The opening beat answers nobody, so it has nothing to judge: whatever signals or
+    mastery changes the model attached to it are discarded rather than credited.
+    """
+    if opener:
+        turn.signals, turn.mastery_updates = [], []
+
     state["turns"] = state.get("turns", 0) + 1
     concepts = state["concepts"]
 
@@ -65,12 +124,23 @@ def apply_turn(state: dict, turn, cfg: dict, concept_map: dict) -> dict:
         if c["exposures"] == 0:
             c["baseline"] = c["mastery"]
         c["exposures"] += 1
+        c["last_turn"] = state["turns"]
         delta = _clamp(upd.delta, -0.20, 0.25)
         if hinted:
             delta -= cfg["hint_penalty"]
         c["mastery"] = _clamp(c["mastery"] + delta)
         if delta < 0:
             c["errors"] += 1
+        # a learner who asks about a locked concept and shows they can use it has
+        # jumped ahead; the board should follow them rather than show it as locked
+        if delta > 0 and not c["unlocked"]:
+            c["unlocked"] = True
+
+    # a teach beat counts as the concept having been taught even though nothing was judged
+    taught = concepts.get(turn.concept_id)
+    if turn.interaction_type == "teach" and taught and taught["exposures"] == 0:
+        taught["exposures"] = 1
+        taught["last_turn"] = state["turns"]
 
     # --- signal bookkeeping ---
     touched = turn.mastery_updates[0].concept_id if turn.mastery_updates else turn.concept_id
@@ -91,11 +161,12 @@ def apply_turn(state: dict, turn, cfg: dict, concept_map: dict) -> dict:
     state["signal_log"] = state["signal_log"][-100:]
 
     # --- streak ---
-    if hinted:
-        state["streak"] = 0
-    else:
-        state["streak"] = state.get("streak", 0) + 1
-        state["best_streak"] = max(state.get("best_streak", 0), state["streak"])
+    if not opener:
+        if hinted:
+            state["streak"] = 0
+        else:
+            state["streak"] = state.get("streak", 0) + 1
+            state["best_streak"] = max(state.get("best_streak", 0), state["streak"])
 
     # --- xp ---
     if cfg["mechanics"].get("xp", True):
@@ -107,16 +178,7 @@ def apply_turn(state: dict, turn, cfg: dict, concept_map: dict) -> dict:
         state["xp"] = state.get("xp", 0) + gained
 
     # --- unlocks ---
-    threshold = cfg["mastery_unlock_threshold"]
-    newly_unlocked = []
-    by_id = {c["id"]: c for c in concept_map.get("concepts", [])}
-    for cid, c in concepts.items():
-        if c["unlocked"]:
-            continue
-        prereqs = by_id.get(cid, {}).get("prerequisites", [])
-        if all(concepts.get(p, {}).get("mastery", 0) >= threshold for p in prereqs):
-            c["unlocked"] = True
-            newly_unlocked.append(cid)
+    newly_unlocked = _unlocks(state, cfg, concept_map)
 
     # --- badges ---
     def award(name):
@@ -139,15 +201,16 @@ def apply_turn(state: dict, turn, cfg: dict, concept_map: dict) -> dict:
         award("mastered_one")
 
     # rolling window of measured outcomes - this is what drives adaptation
-    positives = sum(1 for sg in turn.signals
-                    if sg.detected and sg.name != "hint_dependency")
-    state.setdefault("recent", []).append({
-        "hinted": bool(hinted),
-        "positives": positives,
-        "delta": round(sum(u.delta for u in turn.mastery_updates), 3),
-        "kind": turn.interaction_type,
-    })
-    state["recent"] = state["recent"][-8:]
+    if not opener:
+        positives = sum(1 for sg in turn.signals
+                        if sg.detected and sg.name != "hint_dependency")
+        state.setdefault("recent", []).append({
+            "hinted": bool(hinted),
+            "positives": positives,
+            "delta": round(sum(u.delta for u in turn.mastery_updates), 3),
+            "kind": turn.interaction_type,
+        })
+        state["recent"] = state["recent"][-8:]
 
     state["updated_at"] = time.time()
     state["_newly_unlocked"] = newly_unlocked
@@ -155,6 +218,39 @@ def apply_turn(state: dict, turn, cfg: dict, concept_map: dict) -> dict:
 
 
 LEVEL_BASE = {"beginner": 2, "intermediate": 3, "advanced": 4}
+
+
+def focus_concept(state: dict, cfg: dict):
+    """The concept the next beat should be about, decided here so that the board, the
+    unlocks and the tutor all agree on it."""
+    unlock_at, mastered_at = cfg["mastery_unlock_threshold"], cfg["mastery_mastered_at"]
+    open_ = [(cid, c) for cid, c in state.get("concepts", {}).items()
+             if c["unlocked"] and c["mastery"] < mastered_at]
+    if not open_:
+        return None
+    if state.get("mode") == "tour":
+        for cid, c in open_:                    # keep moving to whatever is still unseen
+            if c["exposures"] == 0:
+                return cid
+    for cid, c in open_:                        # the earliest concept still short of the bar
+        if c["mastery"] < unlock_at:
+            return cid
+    for cid, c in open_:
+        if c["exposures"] == 0:
+            return cid
+    return min(open_, key=lambda kv: kv[1]["mastery"])[0]
+
+
+def review_due(state: dict, cfg: dict, focus):
+    """A concept the learner cleared a while ago and has not touched since - the natural
+    subject of a retrieval beat, and the only honest way to observe retention."""
+    turns = state.get("turns", 0)
+    unlock_at, mastered_at = cfg["mastery_unlock_threshold"], cfg["mastery_mastered_at"]
+    for cid, c in state.get("concepts", {}).items():
+        if cid != focus and unlock_at <= c["mastery"] < mastered_at \
+                and turns - c.get("last_turn", 0) >= 4:
+            return cid
+    return None
 
 
 def adaptation(state: dict, cfg: dict) -> dict:
@@ -206,11 +302,17 @@ def adaptation(state: dict, cfg: dict) -> dict:
         elif streak >= 4 and hint_rate == 0:
             pace = "fast"
 
+    concepts = state.get("concepts", {})
+    focus = focus_concept(state, cfg)
     return {
         "difficulty_target": difficulty,
         "scaffolding": scaffolding,
         "scaffolding_instruction": s_why,
         "pace": pace,
+        "focus_concept": focus,
+        "focus_title": concepts.get(focus, {}).get("title") if focus else None,
+        "unlocked_concepts": [cid for cid, c in concepts.items() if c["unlocked"]],
+        "review_due": review_due(state, cfg, focus),
         "measured": {
             "turns_considered": n,
             "hint_rate": round(hint_rate, 2),
@@ -222,17 +324,28 @@ def adaptation(state: dict, cfg: dict) -> dict:
 
 
 def summary(state: dict, cfg: dict) -> dict:
-    """Roll-up used by the learner header and the dashboard."""
+    """Roll-up used by the learner header and the dashboard.
+
+    overall_mastery is the average over the concepts the learner has actually met. Averaged
+    over the whole map it would read as a few percent for most of a session, which describes
+    how much is left to do, not how well this person understands what they have done;
+    coverage carries that other half.
+    """
     concepts = state.get("concepts", {})
     if not concepts:
-        return {"overall_mastery": 0.0, "mastered": 0, "unlocked": 0, "total": 0,
-                "xp": 0, "streak": 0, "badges": []}
+        return {"overall_mastery": 0.0, "coverage": 0.0, "mastered": 0, "unlocked": 0,
+                "touched": 0, "total": 0, "xp": 0, "streak": 0, "best_streak": 0,
+                "turns": 0, "badges": []}
     mastered_at = cfg["mastery_mastered_at"]
     values = [c["mastery"] for c in concepts.values()]
+    met = [c["mastery"] for c in concepts.values() if c["exposures"] > 0]
+    mastered = sum(1 for v in values if v >= mastered_at)
     return {
-        "overall_mastery": round(sum(values) / len(values), 3),
-        "mastered": sum(1 for v in values if v >= mastered_at),
+        "overall_mastery": round(sum(met) / len(met), 3) if met else 0.0,
+        "coverage": round(mastered / len(values), 3),
+        "mastered": mastered,
         "unlocked": sum(1 for c in concepts.values() if c["unlocked"]),
+        "touched": len(met),
         "total": len(concepts),
         "xp": state.get("xp", 0),
         "streak": state.get("streak", 0),

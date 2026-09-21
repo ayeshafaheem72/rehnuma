@@ -409,6 +409,13 @@ $('closeReport').addEventListener('click', () => { $('reportPanel').hidden = tru
 
 let CONFIG_SCHEMA = [];
 
+/* what each free-text setting is for, shown until something is typed */
+const TEXT_HINTS = {
+  learner_profile: 'e.g. a first-time saver in their twenties, no banking background',
+  constraints: 'e.g. five minutes, on a phone, in a noisy place',
+  custom_rules: 'e.g. Always finish with one practical thing to try today. Never use jargon.',
+};
+
 function renderConfig(payload) {
   CONFIG_SCHEMA = payload.schema;
   const cfg = payload.config;
@@ -438,6 +445,14 @@ function renderConfig(payload) {
         if (String(!!cfg[f.key]) === v) opt.selected = true;
         input.appendChild(opt);
       });
+    } else if (f.kind === 'text') {
+      // free-text settings: who is learning, the operating constraint, extra rules
+      input = el('textarea');
+      input.rows = f.options > 200 ? 3 : 2;
+      input.maxLength = f.options;
+      input.value = cfg[f.key] || '';
+      input.placeholder = TEXT_HINTS[f.key] || '';
+      wrap.classList.add('wide');
     } else {
       input = el('input');
       input.type = 'number';
@@ -475,7 +490,7 @@ $('saveConfig').addEventListener('click', async () => {
     const k = inp.dataset.key;
     if (inp.dataset.kind === 'bool')        patch[k] = inp.value === 'true';
     else if (inp.dataset.kind === 'number') patch[k] = Number(inp.value);
-    else                                    patch[k] = inp.value;
+    else                                    patch[k] = inp.value;   // select and text
   });
   $('mechanicsRow').querySelectorAll('[data-mech]').forEach(cb => {
     patch.mechanics[cb.dataset.mech] = cb.checked;

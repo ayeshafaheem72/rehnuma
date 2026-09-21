@@ -12,7 +12,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS sources (
     id          TEXT PRIMARY KEY,
     title       TEXT NOT NULL,
-    raw_text    TEXT NOT NULL,
+    raw_text    TEXT NOT NULL DEFAULT '',  -- kept empty: only verified quotes are stored
     concept_map TEXT NOT NULL,          -- JSON: concepts + verbatim source quotes
     char_count  INTEGER NOT NULL DEFAULT 0,
     created_at  REAL NOT NULL
@@ -54,6 +54,15 @@ CREATE TABLE IF NOT EXISTS events (
     created_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_events_time ON events(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS feedback (
+    id         TEXT PRIMARY KEY,
+    learner_id TEXT NOT NULL,
+    rating     INTEGER NOT NULL,        -- 1 = helpful, -1 = not helpful
+    concept_id TEXT,
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_learner ON feedback(learner_id);
 """
 
 
@@ -71,6 +80,9 @@ def conn():
 
 def init():
     with conn() as c:
+        # WAL lets the story prefetch thread write while requests read, without either
+        # waiting on the other
+        c.execute("PRAGMA journal_mode=WAL")
         c.executescript(SCHEMA)
 
 
@@ -80,13 +92,16 @@ def new_id() -> str:
 
 # ---------- sources ----------
 
-def save_source(title: str, raw_text: str, concept_map: dict) -> str:
+def save_source(title: str, concept_map: dict, char_count: int) -> str:
+    """The upload itself is not kept. Everything the tutor may say comes from the verified
+    quotes inside the concept map, so the full text has no reader - and a document a
+    learner handed over should not outlive the need for it."""
     sid = new_id()
     with conn() as c:
         c.execute(
             "INSERT INTO sources (id,title,raw_text,concept_map,char_count,created_at)"
             " VALUES (?,?,?,?,?,?)",
-            (sid, title, raw_text, json.dumps(concept_map), len(raw_text), time.time()),
+            (sid, title, "", json.dumps(concept_map), int(char_count), time.time()),
         )
     return sid
 
@@ -181,6 +196,65 @@ def all_turns(limit: int = 2000):
         d["signals"] = json.loads(d["signals"]) if d["signals"] else None
         out.append(d)
     return out
+
+
+def count_guide_turns_since(ts: float) -> int:
+    with conn() as c:
+        row = c.execute(
+            "SELECT COUNT(*) AS n FROM turns WHERE role='guide' AND created_at>=?", (ts,)
+        ).fetchone()
+    return int(row["n"])
+
+
+# ---------- feedback & privacy ----------
+
+def save_feedback(learner_id: str, rating: int, concept_id: str | None = None):
+    with conn() as c:
+        c.execute(
+            "INSERT INTO feedback (id,learner_id,rating,concept_id,created_at) VALUES (?,?,?,?,?)",
+            (new_id(), learner_id, 1 if rating > 0 else -1, concept_id, time.time()),
+        )
+
+
+def feedback_summary(learner_id: str | None = None) -> dict:
+    q = "SELECT rating, COUNT(*) AS n FROM feedback"
+    args: tuple = ()
+    if learner_id:
+        q += " WHERE learner_id=?"
+        args = (learner_id,)
+    with conn() as c:
+        rows = c.execute(q + " GROUP BY rating", args).fetchall()
+    up = sum(r["n"] for r in rows if r["rating"] > 0)
+    down = sum(r["n"] for r in rows if r["rating"] < 0)
+    return {"up": up, "down": down, "total": up + down,
+            "helpful_rate": round(up / (up + down), 3) if up + down else None}
+
+
+def delete_learner(learner_id: str) -> bool:
+    """Erasure: the learner, everything they said, and their feedback."""
+    with conn() as c:
+        c.execute("DELETE FROM turns WHERE learner_id=?", (learner_id,))
+        c.execute("DELETE FROM feedback WHERE learner_id=?", (learner_id,))
+        cur = c.execute("DELETE FROM learners WHERE id=?", (learner_id,))
+    return cur.rowcount > 0
+
+
+def purge_older_than(days: int) -> dict:
+    """Retention. Learner data past its window goes, along with any source no remaining
+    learner is using and log lines that have outlived their usefulness."""
+    cutoff = time.time() - days * 86400
+    with conn() as c:
+        old = [r["id"] for r in c.execute(
+            "SELECT id FROM learners WHERE updated_at<?", (cutoff,)).fetchall()]
+        for lid in old:
+            c.execute("DELETE FROM turns WHERE learner_id=?", (lid,))
+            c.execute("DELETE FROM feedback WHERE learner_id=?", (lid,))
+        c.execute("DELETE FROM learners WHERE updated_at<?", (cutoff,))
+        src = c.execute(
+            "DELETE FROM sources WHERE created_at<? AND id NOT IN "
+            "(SELECT source_id FROM learners WHERE source_id IS NOT NULL)", (cutoff,)).rowcount
+        ev = c.execute("DELETE FROM events WHERE created_at<?", (cutoff,)).rowcount
+    return {"learners": len(old), "sources": src, "events": ev}
 
 
 # ---------- settings ----------

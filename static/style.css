@@ -1100,3 +1100,7 @@ td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .filter-row .btn { flex: 0 0 auto; }
 .filter.active > span { color: var(--zard); }
 .filter.active select { border-color: var(--zard); box-shadow: 3px 3px 0 var(--zard); }
+
+/* ------------------------------------------------ admin: free-text settings */
+.field.wide { grid-column: 1 / -1; }
+.field textarea { min-height: 54px; resize: vertical; }

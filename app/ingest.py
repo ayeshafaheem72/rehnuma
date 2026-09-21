@@ -13,6 +13,7 @@ import socket
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 
 import pymupdf
 
@@ -127,10 +128,7 @@ def from_csv(data: bytes, filename: str = "") -> tuple[str, bool]:
     request. We state the shape of the table first, then render each row as labelled lines
     that read like short factual paragraphs.
     """
-    try:
-        raw = data.decode("utf-8-sig", errors="replace")
-    except Exception as e:
-        raise IngestError("That spreadsheet is not readable as text.") from e
+    raw = _decode_text(data)
     raw = raw.replace("\r\n", "\n").replace("\r", "\n")
     if not raw.strip():
         raise IngestError("That spreadsheet appears to be empty.")
@@ -352,20 +350,109 @@ def from_url(url: str) -> tuple[str, bool]:
     return _truncate(text)
 
 
+# ---------------------------------------------------------------- Office files
+
+# Word and PowerPoint files are zip archives of XML. Reading them with a few patterns rather
+# than a parser means no library to install and no XML entity expansion to defend against.
+MAX_ZIP_MEMBER = 20 * 1024 * 1024
+_DOCX_PARA = re.compile(r"(?s)<w:p[ >].*?</w:p>")
+_DOCX_RUN = re.compile(r"(?s)<w:t(?:\s[^>]*)?>(.*?)</w:t>|(<w:tab\s*/>)|(<w:br\s*/>)")
+_PPTX_PARA = re.compile(r"(?s)<a:p[ >].*?</a:p>")
+_PPTX_TEXT = re.compile(r"(?s)<a:t(?:\s[^>]*)?>(.*?)</a:t>")
+
+
+def _open_zip(data: bytes, what: str) -> zipfile.ZipFile:
+    try:
+        return zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile as e:
+        raise IngestError(f"That {what} could not be opened. Is the file complete?") from e
+
+
+def _zip_text(z: zipfile.ZipFile, name: str) -> str:
+    if z.getinfo(name).file_size > MAX_ZIP_MEMBER:
+        raise IngestError("That file is too large once opened. Please upload a smaller one.")
+    with z.open(name) as f:
+        return f.read(MAX_ZIP_MEMBER + 1).decode("utf-8", errors="replace")
+
+
+def from_docx(data: bytes) -> tuple[str, bool]:
+    with _open_zip(data, "Word document") as z:
+        if "word/document.xml" not in z.namelist():
+            raise IngestError("That does not look like a Word (.docx) document.")
+        xml = _zip_text(z, "word/document.xml")
+    lines = []
+    for para in _DOCX_PARA.findall(xml):
+        parts = []
+        for m in _DOCX_RUN.finditer(para):
+            parts.append(html.unescape(m.group(1)) if m.group(1) is not None else " ")
+        line = "".join(parts).strip()
+        if line:
+            lines.append(line)
+    return _office_result(lines, "document")
+
+
+def from_pptx(data: bytes) -> tuple[str, bool]:
+    with _open_zip(data, "PowerPoint file") as z:
+        slides = sorted(
+            (n for n in z.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", n)),
+            key=lambda n: int(re.search(r"(\d+)\.xml$", n).group(1)))
+        if not slides:
+            raise IngestError("That does not look like a PowerPoint (.pptx) file.")
+        blocks = []
+        for i, name in enumerate(slides[:MAX_PAGES], start=1):
+            xml = _zip_text(z, name)
+            lines = []
+            for para in _PPTX_PARA.findall(xml):
+                text = "".join(html.unescape(t) for t in _PPTX_TEXT.findall(para)).strip()
+                if text:
+                    lines.append(text)
+            if lines:
+                blocks.append(f"Slide {i}\n" + "\n".join(lines))
+    return _office_result(blocks, "presentation")
+
+
+def _office_result(blocks: list, what: str) -> tuple[str, bool]:
+    text = _clean("\n\n".join(blocks))
+    if len(text) < 200:
+        raise IngestError(f"Almost no text came out of that {what}. If it is mostly images, "
+                          "paste the text directly instead.")
+    return _truncate(text)
+
+
+# ---------------------------------------------------------------- text files
+
+def _decode_text(data: bytes) -> str:
+    """A text file may be UTF-8, UTF-16 (what Notepad calls "Unicode", and the likeliest
+    way for an Urdu file to arrive) or an old Windows code page. Guessing UTF-8 for all of
+    them turns the second into gibberish."""
+    if data[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return data.decode("utf-16", errors="replace")
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return data.decode("cp1252", errors="replace")
+
+
 # ---------------------------------------------------------------- dispatch
+
+SUPPORTED = "PDF, Word (.docx), PowerPoint (.pptx), .txt, .md, .html or .csv"
+
 
 def from_upload(filename: str, data: bytes) -> tuple[str, bool]:
     name = (filename or "").lower()
     if name.endswith(".pdf") or data[:5] == b"%PDF-":
         return from_pdf(data)
+    if name.endswith(".docx"):
+        return from_docx(data)
+    if name.endswith(".pptx"):
+        return from_pptx(data)
     if name.endswith((".csv", ".tsv")):
         return from_csv(data, filename)
+    if name.endswith((".html", ".htm")):
+        return from_text(_html_to_text(_decode_text(data)))
     if name.endswith((".txt", ".md", ".markdown")):
-        try:
-            return from_text(data.decode("utf-8", errors="replace"))
-        except UnicodeDecodeError as e:
-            raise IngestError("That file is not readable as text.") from e
-    raise IngestError("Unsupported file type. Upload a PDF, .txt, .md or .csv file, "
+        return from_text(_decode_text(data))
+    raise IngestError(f"Unsupported file type. Upload a {SUPPORTED} file, "
                       "paste a link, or paste the text instead.")
 
 
