@@ -92,11 +92,16 @@ OPENERS = {
            "صورتحال یہ ہے: ایک ساتھی یہ پڑھ کر آپ سے پوچھتا ہے کہ عملی طور پر اس کا کیا مطلب ہے۔ آپ کیا کہیں گے؟"),
 }
 
+# Deliberately subject-neutral. The engine must work on ANY uploaded material - a
+# policy, a safety manual, a biology chapter, a spreadsheet - so no template may
+# assume a setting, an industry or a role.
 MISSION = {
-    "en": ("You are on the counter. A customer pushes a form across and says: "
-           "\"just tell me straight — {hook}\"\n\nThe material says:\n{quote}\n\nWhat do you do?"),
-    "ur": ("آپ کاؤنٹر پر ہیں۔ ایک گاہک فارم آگے بڑھاتا ہے اور کہتا ہے: "
-           "\"صاف بتائیں — {hook}\"\n\nمواد کہتا ہے:\n{quote}\n\nآپ کیا کریں گے؟"),
+    "en": ("Someone who has just read this comes to you and says: \"be straight with me, "
+           "what does {hook} actually mean in practice?\"\n\nThe material says:\n{quote}\n\n"
+           "How do you answer them?"),
+    "ur": ("کوئی شخص یہ پڑھ کر آپ کے پاس آتا ہے اور کہتا ہے: \"صاف بتائیں، "
+           "{hook} کا عملی طور پر کیا مطلب ہے؟\"\n\nمواد کہتا ہے:\n{quote}\n\n"
+           "آپ کیا جواب دیں گے؟"),
 }
 
 EXPLAIN = {
@@ -130,10 +135,10 @@ OFF_SOURCE = {
 
 CHOICES = {
     "en": [("a", "Walk them through it line by line"),
-           ("b", "Give them one concrete example with real numbers"),
+           ("b", "Give them one concrete worked example"),
            ("c", "Ask what they already think it means, then correct from there")],
     "ur": [("a", "انہیں سطر بہ سطر سمجھائیں"),
-           ("b", "اصل اعداد کے ساتھ ایک ٹھوس مثال دیں"),
+           ("b", "ایک ٹھوس عملی مثال دیں"),
            ("c", "پہلے پوچھیں کہ وہ کیا سمجھتے ہیں، پھر درست کریں")],
 }
 
@@ -192,7 +197,7 @@ def run_turn(concept_map: dict, learner_state: dict, history: list,
         signals = [Signal(name=n, detected=False, evidence="") for n in SIGNAL_NAMES]
         hedging = False
         text = OPENERS[lang].format(title=concept["title"], quote=f'"{quote["text"]}"')
-        kind, choices = "mission", []
+        kind, choices = "teach", []
     else:
         signals, hedging = _read_signals(learner_message, concept)
         turn_no = learner_state.get("turns", 0)

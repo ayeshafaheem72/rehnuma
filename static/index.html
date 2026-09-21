@@ -43,8 +43,8 @@
 
   <div class="giving-back">
     <span class="tag">Giving back</span>
-    <span>Knowledge should not sit behind a counter. Rehnuma turns any material into a
-      learning experience anyone can follow &mdash; in English or Urdu, by voice or by text.</span>
+    <span>Give Rehnuma any material &mdash; a policy, a manual, a chapter, a page of notes &mdash;
+      and it becomes a learning experience anyone can follow, in English or Urdu, by voice or text.</span>
   </div>
 
   <!-- ============================ SETUP ============================ -->
@@ -59,8 +59,9 @@
         </div>
         <div class="panel-body">
           <p class="small" style="margin-top:0">
-            Upload a PDF or paste text. Rehnuma reads it, maps the ideas inside it, and turns
-            them into a playable journey &mdash; grounded in your material, quote by quote.
+            Upload a document or a spreadsheet, or paste text. Rehnuma reads it, maps the ideas
+            inside it, and turns them into a playable journey &mdash; grounded in your material,
+            quote by quote.
           </p>
 
           <div class="tabs" role="tablist">
@@ -72,8 +73,8 @@
             <div class="panel-body">
               <div id="paneFile" role="tabpanel">
                 <div class="field">
-                  <label for="fileInput">PDF, .txt or .md &mdash; up to 8&nbsp;MB</label>
-                  <input type="file" id="fileInput" accept=".pdf,.txt,.md,.markdown,.csv">
+                  <label for="fileInput">PDF, .txt, .md, .csv or .tsv &mdash; up to 8&nbsp;MB</label>
+                  <input type="file" id="fileInput" accept=".pdf,.txt,.md,.markdown,.csv,.tsv">
                 </div>
               </div>
 
@@ -105,9 +106,39 @@
       </div>
 
       <div class="panel" id="mapPreview" hidden>
-        <div class="panel-head"><h2>What Rehnuma found</h2></div>
+        <div class="panel-head">
+          <h2>What Rehnuma found</h2>
+          <div class="spacer"></div>
+          <span class="eyebrow">Step 2</span>
+        </div>
         <div class="panel-body">
           <div id="mapList" class="col"></div>
+
+          <!-- How the learner wants to be taught. The key travels to the server as
+               "mode" and shapes every turn, so it is chosen before the first beat. -->
+          <div class="mode-block">
+            <div class="eyebrow">How would you like to learn it?</div>
+            <div class="mode-pick" id="modePick" role="radiogroup"
+                 aria-label="How would you like to learn it?">
+              <button class="mode" type="button" role="radio" aria-checked="false" data-mode="story">
+                <span class="mode-name">Story</span>
+                <span class="mode-desc">The ideas arrive inside an unfolding story.</span>
+              </button>
+              <button class="mode" type="button" role="radio" aria-checked="true" data-mode="challenge">
+                <span class="mode-name">Challenge</span>
+                <span class="mode-desc">Situations to act in, where choices carry consequences.</span>
+              </button>
+              <button class="mode" type="button" role="radio" aria-checked="false" data-mode="tour">
+                <span class="mode-name">Tour</span>
+                <span class="mode-desc">A quick look at the shape of the whole subject.</span>
+              </button>
+              <button class="mode" type="button" role="radio" aria-checked="false" data-mode="deep">
+                <span class="mode-name">Deep</span>
+                <span class="mode-desc">One concept at a time, with worked examples.</span>
+              </button>
+            </div>
+          </div>
+
           <button class="btn green mt" id="startBtn" type="button">Start learning</button>
         </div>
       </div>

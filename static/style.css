@@ -202,6 +202,9 @@ h1, h2, h3, .display {
 /* ----------------------------------------------------------------- stats */
 
 .stat-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+/* the display above outranks the browser's own [hidden] rule, so the chips would sit
+   there reading XP 0 on the setup screen before a session exists */
+.stat-row[hidden] { display: none; }
 
 .stat {
   display: flex;
@@ -736,20 +739,30 @@ td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 }
 .toast.bad { background: var(--lal); color: #fff; }
 
-/* three bouncing dots while the guide is thinking */
-.thinking { display: flex; gap: 5px; align-items: center; padding: 4px 0; }
-.thinking i {
-  width: 9px; height: 9px;
+/* While the guide is thinking. A line of text rather than dots, because the wait is
+   several seconds long and a learner deserves to know what is being done with it. */
+.thinking { display: flex; gap: 10px; align-items: center; padding: 5px 2px; }
+.thinking .pip {
+  width: 10px; height: 10px;
+  flex: none;
   background: var(--zard);
   border: 2px solid var(--ink);
-  display: block;
-  animation: bob .9s ease-in-out infinite;
+  animation: pip-beat 1.4s ease-in-out infinite;
 }
-.thinking i:nth-child(2) { animation-delay: .12s; background: var(--rani); }
-.thinking i:nth-child(3) { animation-delay: .24s; background: var(--firozi); }
-@keyframes bob {
-  0%,100% { transform: translateY(0); }
-  50%     { transform: translateY(-7px); }
+.thinking .line {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .05em;
+  color: var(--chrome-dim);
+}
+.thinking .line.in { animation: line-in .42s ease both; }
+@keyframes pip-beat {
+  0%,100% { transform: scale(1);   background: var(--zard); }
+  50%     { transform: scale(.7);  background: var(--rani); }
+}
+@keyframes line-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -946,12 +959,117 @@ td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
   background: linear-gradient(90deg, var(--ubl-lt), var(--sabz));
 }
 
+/* a reply being spoken: a caret follows the words, and the whole bubble is a skip target */
+.bubble.revealing { cursor: pointer; }
+.bubble.revealing .said::after {
+  content: "";
+  display: inline-block;
+  width: .5em;
+  height: 1.02em;
+  margin-inline-start: 2px;
+  vertical-align: -.17em;
+  background: var(--ubl);
+  animation: caret 1s steps(2, start) infinite;
+}
+@keyframes caret { 0%,100% { opacity: 1; } 50% { opacity: .18; } }
+
+.skip-hint {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink);
+  opacity: .4;
+}
+
+/* XP lifting off the chip that earned it */
+.xp-float {
+  position: fixed;
+  z-index: 60;
+  padding: 3px 9px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--zard);
+  border: 2px solid var(--ink);
+  box-shadow: var(--pop-sm);
+  pointer-events: none;
+  animation: xp-rise 1.15s cubic-bezier(.2,.9,.3,1) both;
+}
+@keyframes xp-rise {
+  0%   { opacity: 0; transform: translate(-50%, 4px)   scale(.82); }
+  20%  { opacity: 1; transform: translate(-50%, -6px)  scale(1.06); }
+  100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
+}
+
+/* crossing the mastery threshold: the medallion takes a bow, once */
+@keyframes mastered-flourish {
+  0%   { transform: scale(1)    rotate(0);     box-shadow: 0 0 0 0   var(--zard), var(--pop-sm); }
+  35%  { transform: scale(1.17) rotate(-7deg); box-shadow: 0 0 0 7px var(--zard), var(--pop-sm); }
+  70%  { transform: scale(.98)  rotate(4deg);  box-shadow: 0 0 0 13px transparent, var(--pop-sm); }
+  100% { transform: scale(1)    rotate(0);     box-shadow: 0 0 0 0   transparent, var(--pop-sm); }
+}
+.stop.just-mastered .medallion {
+  animation: mastered-flourish .85s cubic-bezier(.2,1.3,.35,1) both;
+}
+
+/* ------------------------------------------------- learning mode cards */
+
+.mode-block { margin-top: 15px; }
+.mode-block > .eyebrow { display: block; margin-bottom: 7px; }
+
+.mode-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 9px;
+}
+
+.mode {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  padding: 11px 13px;
+  font: inherit;
+  color: var(--chrome);
+  background: var(--ink-3);
+  border: var(--line-light);
+  box-shadow: var(--pop-sm);
+  cursor: pointer;
+  transition: transform .12s, box-shadow .12s, background .12s, color .12s;
+}
+.mode:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 var(--ink); }
+.mode:focus-visible { outline: 3px solid var(--zard); outline-offset: 2px; }
+.mode .mode-name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.2;
+}
+.mode .mode-desc { font-size: 11.5px; line-height: 1.45; color: var(--chrome-dim); }
+
+.mode.on {
+  background: var(--zard);
+  color: var(--ink);
+  border-color: var(--ink);
+  transform: translate(-2px,-2px);
+  box-shadow: 5px 5px 0 var(--ink);
+}
+.mode.on .mode-desc { color: var(--ink); opacity: .72; }
+
 @media (prefers-reduced-motion: reduce) {
   .bubble.enter, .bubble.teach-beat.enter, .choices .choice,
-  .cites .cite, .stop.just-unlocked .medallion, .stat.bump {
+  .cites .cite, .stop.just-unlocked .medallion, .stat.bump,
+  .stop.just-mastered .medallion, .thinking .pip, .thinking .line.in {
     animation: none !important;
   }
   .stop.current { transform: none; }
+  /* the reveal is skipped outright in this mode, so neither marker should ever show */
+  .bubble.revealing .said::after, .xp-float { display: none; }
+  .mode { transition: none; }
 }
 
 

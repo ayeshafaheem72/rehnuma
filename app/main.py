@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from starlette.concurrency import run_in_threadpool
 
 load_dotenv()
 
@@ -139,6 +140,33 @@ async def paste_source(request: Request, body: PasteIn):
     return out
 
 
+class UrlIn(BaseModel):
+    url: str
+    title: str = ""
+
+
+@app.post("/api/source/url")
+@limiter.limit("10/minute")
+async def url_source(request: Request, body: UrlIn):
+    url = security.clean_text(body.url, 2000)
+    # The fetch blocks for up to 15 seconds. Run it off the event loop, or one slow page
+    # freezes every other learner's turn behind it.
+    try:
+        text, truncated = await run_in_threadpool(ingest.from_url, url)
+    except ingest.IngestError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+    title = security.clean_text(body.title, 120) or ingest.title_from("", text)
+    try:
+        out = _build_source(text, title)
+    except Exception as e:
+        db.log_event("error", "concept map failed", {"error": str(e)[:400]})
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY,
+                            "The concept map could not be built. Please try again.")
+    out["truncated"] = truncated
+    out["title"] = title
+    return out
+
+
 @app.get("/api/sources")
 def sources():
     return {"sources": db.list_sources()}
@@ -146,9 +174,13 @@ def sources():
 
 # ------------------------------------------------------------ learning
 
+MODES = {"story", "challenge", "tour", "deep"}
+
+
 class StartIn(BaseModel):
     source_id: str
     label: str = "Learner"
+    mode: str = ""          # story | challenge | tour | deep; blank falls back to config
 
 
 def _turn_payload(turn, learner, cfg):
@@ -181,6 +213,8 @@ async def start_session(request: Request, body: StartIn):
 
     learner_id = db.new_id()
     st = state.new_state(cmap)
+    # how this learner wants to be taught - the prompt layer reads it off the state
+    st["mode"] = body.mode if body.mode in MODES else cfg["default_mode"]
     db.save_learner(learner_id, security.clean_text(body.label, 60) or "Learner", sid, st)
 
     try:
@@ -191,7 +225,9 @@ async def start_session(request: Request, body: StartIn):
                             "Could not start the session. Please try again.")
 
     st = state.apply_turn(st, turn, cfg, cmap)
-    db.save_learner(learner_id, body.label or "Learner", sid, st)
+    # same cleaning as the first save above - this one would otherwise put the raw,
+    # uncapped label back over the cleaned one
+    db.save_learner(learner_id, security.clean_text(body.label, 60) or "Learner", sid, st)
     db.save_turn(learner_id, "guide", turn.message, _signals_dict(turn), turn.concept_id,
                  latency, usage.input_tokens, usage.output_tokens)
 

@@ -14,6 +14,8 @@ DEFAULTS = {
     "pace":               "normal",       # slow | normal | fast
 
     # --- how it teaches ---
+    "default_mode":       "challenge",    # story | challenge | tour | deep - how the
+                                          # learner is taught; they may override per session
     "difficulty_curve":   "adaptive",     # gentle | adaptive | steep
     "response_length":    "short",        # short | medium | long
     "mechanics": {
@@ -58,6 +60,7 @@ SCHEMA = [
     ("language", "select", ["en", "ur", "mixed"], "Language"),
     ("tone", "select", ["formal", "friendly", "playful"], "Tone"),
     ("pace", "select", ["slow", "normal", "fast"], "Pace"),
+    ("default_mode", "select", ["story", "challenge", "tour", "deep"], "Default learning mode"),
     ("difficulty_curve", "select", ["gentle", "adaptive", "steep"], "Difficulty curve"),
     ("response_length", "select", ["short", "medium", "long"], "Response length"),
     ("mastery_unlock_threshold", "number", (0, 1, 0.05), "Unlock threshold"),
