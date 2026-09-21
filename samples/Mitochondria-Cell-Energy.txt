@@ -1,0 +1,11 @@
+Mitochondria are membrane-bound organelles found in the cytoplasm of almost all eukaryotic cells. Their main job is to convert the chemical energy stored in food into a form the cell can use. They are often called the powerhouses of the cell.
+
+The energy currency of the cell is a molecule called ATP, short for adenosine triphosphate. When a cell needs energy for movement, growth or repair, it breaks a phosphate bond in ATP, which releases energy quickly.
+
+Cellular respiration is the process that makes ATP. It has three stages: glycolysis in the cytoplasm, the Krebs cycle in the mitochondrial matrix, and the electron transport chain across the inner membrane. Together they can produce about 30 to 32 molecules of ATP from a single molecule of glucose.
+
+Mitochondria have two membranes. The outer membrane is smooth and the inner membrane is folded into structures called cristae. The folds increase the surface area available for the electron transport chain, which is why cells with high energy demands, such as heart muscle cells, contain thousands of mitochondria.
+
+Mitochondria contain their own small circular DNA and can divide independently of the cell. Most of this DNA is inherited from the mother. Scientists use this fact to trace maternal ancestry through many generations.
+
+When mitochondria stop working properly the result can be mitochondrial disease. Because the affected tissues need a lot of energy, symptoms often appear first in the brain, heart and muscles.
