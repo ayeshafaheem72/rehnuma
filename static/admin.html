@@ -6,6 +6,7 @@
 <title>Rehnuma Control Room</title>
 <meta name="description" content="Learner analytics, mastery evidence, configuration and observability for Rehnuma.">
 <link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/admin.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2310131A'/><rect x='6' y='16' width='5' height='10' fill='%2300A878'/><rect x='13' y='10' width='5' height='16' fill='%23FFC402'/><rect x='20' y='6' width='5' height='20' fill='%23E6006E'/></svg>">
 <script src="/static/vendor/chart.umd.min.js"></script>
 </head>
@@ -84,10 +85,11 @@
           <h2>At a glance</h2>
           <div class="spacer"></div>
           <button class="btn sm blue" id="refreshBtn" type="button">Refresh</button>
-          <a class="btn sm green" id="csvBtn" href="/api/report.csv">Export CSV</a>
+          <a class="btn sm green" id="csvBtn" href="/api/report.csv">Export outcomes CSV</a>
+          <a class="btn sm green" id="evBtn" href="/api/evidence.csv">Export evidence CSV</a>
         </div>
         <div class="panel-body">
-          <div class="grid-cards" id="tiles"></div>
+          <div id="tiles"></div>
         </div>
       </section>
 
@@ -108,7 +110,24 @@
               <div class="eyebrow">Interaction mix</div>
               <div class="chart-box"><canvas id="chartMix"></canvas></div>
             </div>
+            <div>
+              <div class="eyebrow">Learning curve &mdash; average mastery gained on each reply</div>
+              <div class="chart-box"><canvas id="chartCurve"></canvas></div>
+            </div>
           </div>
+        </div>
+      </section>
+
+      <!-- where the material is hard, and how the platform is being used -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Where learners struggle</h2>
+          <div class="spacer"></div>
+          <span class="eyebrow">Per concept, across the filtered learners</span>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap"><table id="conceptTable"></table></div>
+          <div class="usage" id="usageBox"></div>
         </div>
       </section>
 
@@ -151,7 +170,7 @@
           <span class="eyebrow">Changes apply to the next turn &mdash; no redeploy</span>
         </div>
         <div class="panel-body">
-          <div class="grid-cards" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))" id="configFields"></div>
+          <div id="configFields"></div>
 
           <div class="mt">
             <div class="eyebrow">Game mechanics</div>

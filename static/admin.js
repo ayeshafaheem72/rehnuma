@@ -99,6 +99,7 @@ async function load() {
     const health = await api('/health');
     renderTiles(DATA, health);
     renderCharts(DATA);
+    renderConceptStats(DATA);
     renderEvidence(DATA);
     renderLearners(DATA);
     renderConfig(await api('/api/config'));
@@ -141,7 +142,9 @@ function renderFilters(f) {
   $('filterNote').textContent = on.length
     ? `${on.length} filter${on.length > 1 ? 's' : ''} applied — every view below is narrowed`
     : 'Showing everything';
-  $('csvBtn').href = '/api/report.csv' + (FILTERS.learner ? '?learner=' + FILTERS.learner : '');
+  const q = filterQuery();
+  $('csvBtn').href = '/api/report.csv' + q;
+  $('evBtn').href = '/api/evidence.csv' + q;
 }
 
 $('fClear').addEventListener('click', () => {
@@ -154,19 +157,56 @@ $('fClear').addEventListener('click', () => {
 function renderTiles(d, health) {
   const box = $('tiles');
   box.textContent = '';
-  const tiles = [
-    ['a', d.totals.learners,        'Learners'],
-    ['b', d.totals.turns,           'Guide turns'],
-    ['c', d.totals.sources,         'Sources'],
-    ['d', d.latency.p50 + 'ms',     'Latency p50'],
-    ['a', d.latency.p95 + 'ms',     'Latency p95'],
-    ['b', (d.totals.tokens_in + d.totals.tokens_out).toLocaleString(), 'Tokens used'],
+  const o = d.outcomes || {};
+  const dash = '\u2013';
+  const pct = (v) => v === null || v === undefined ? dash : Math.round(v * 100) + '%';
+  const gain = o.avg_gain === null || o.avg_gain === undefined ? dash
+    : (o.avg_gain >= 0 ? '+' : '') + Math.round(o.avg_gain * 100) + '%';
+  const st = o.story || { started: 0, completed: 0, skipped: 0 };
+  const fb = o.feedback || { total: 0 };
+  const g = o.grounding || { quotes_total: 0, verbatim: 0, repaired: 0 };
+  const groundOk = g.verbatim + g.repaired;
+  const orDash = (v) => v === null || v === undefined ? dash : v;
+
+  const groups = [
+    ['Usage & engagement', [
+      ['a', d.totals.learners, 'Learners'],
+      ['b', d.totals.turns, 'Guide turns'],
+      ['c', d.totals.sources, 'Sources'],
+      ['d', orDash(o.avg_turns), 'Turns per session'],
+      ['a', orDash(o.avg_minutes), 'Minutes per session'],
+      ['b', st.started ? st.completed + '/' + st.started : dash, 'Stories finished',
+        st.started ? st.skipped + ' skipped' : 'no story yet'],
+    ]],
+    ['Learning outcomes', [
+      ['c', gain, 'Average mastery gain', 'before to after, per concept'],
+      ['d', pct(o.avg_mastery), 'Mastery of concepts met'],
+      ['a', orDash(o.concepts_mastered), 'Concepts mastered'],
+      ['b', fb.total ? pct(fb.helpful_rate) : dash, 'Replies rated helpful',
+        fb.total ? fb.total + ' rating' + (fb.total > 1 ? 's' : '') : 'no ratings yet'],
+    ]],
+    ['Efficiency & quality', [
+      ['a', d.latency.p50 + 'ms', 'Latency p50'],
+      ['d', d.latency.p95 + 'ms', 'Latency p95'],
+      ['b', (d.totals.tokens_in + d.totals.tokens_out).toLocaleString(), 'Tokens used'],
+      ['c', pct(o.cache_hit_rate), 'Prompt cache hit rate', 'share of input read from cache'],
+      ['a', g.quotes_total ? groundOk + '/' + g.quotes_total : dash, 'Quotes verified in source',
+        g.repaired ? g.repaired + ' corrected' : 'checked against the upload'],
+    ]],
   ];
-  tiles.forEach(([cls, n, k]) => {
-    const t = el('div', 'tile ' + cls);
-    t.appendChild(el('div', 'n', String(n)));
-    t.appendChild(el('div', 'k', k));
-    box.appendChild(t);
+  groups.forEach(([title, tiles]) => {
+    const grp = el('div', 'tile-group');
+    grp.appendChild(el('div', 'eyebrow', title));
+    const grid = el('div', 'grid-cards');
+    tiles.forEach(([cls, n, k, sub]) => {
+      const t = el('div', 'tile ' + cls);
+      t.appendChild(el('div', 'n', String(n)));
+      t.appendChild(el('div', 'k', k));
+      if (sub) t.appendChild(el('div', 's', sub));
+      grid.appendChild(t);
+    });
+    grp.appendChild(grid);
+    box.appendChild(grp);
   });
 }
 
@@ -311,6 +351,77 @@ function renderCharts(d) {
     },
     plugins: [endLabels],
   });
+
+  /* 4. Learning curve - change over an ordered sequence, so a line: one series, 2px, points
+        big enough to hover, the value written on each point rather than decoded from a grid */
+  const curve = d.gain_by_turn || [];
+  const signed = (v) => (v > 0 ? '+' : '') + Math.round(v * 100) + '%';
+  draw('curve', 'chartCurve', {
+    type: 'line',
+    data: {
+      labels: curve.map(([n]) => 'reply ' + n),
+      datasets: [{
+        label: 'Average mastery gained',
+        data: curve.map(([, v]) => v),
+        borderColor: CAT[3], backgroundColor: CAT[3],
+        borderWidth: 2, pointRadius: 5, pointHoverRadius: 8, tension: 0, fill: false,
+      }],
+    },
+    options: {
+      ...baseOpts(false),
+      layout: { padding: { top: 26, right: 22 } },   // room above the highest point for its label
+      scales: {
+        x: { grid: { display: false }, border: { display: false }, ticks: { color: INK_TEXT, font: { size: 10 } } },
+        y: { grid: { color: GRID, drawTicks: false }, border: { display: false },
+             ticks: { color: INK_MUTED, font: { size: 10 }, callback: signed } },
+      },
+    },
+    plugins: [{
+      id: 'curveLabels',
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        ctx.save(); ctx.fillStyle = INK_TEXT; ctx.font = '700 11px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        chart.getDatasetMeta(0).data.forEach((pt, i) => ctx.fillText(signed(chart.data.datasets[0].data[i]), pt.x, pt.y - 9));
+        ctx.restore();
+      },
+    }],
+  });
+}
+
+/* --------------------------------------------- where learners struggle + usage */
+
+function renderConceptStats(d) {
+  const rows = d.concept_stats || [];
+  const t = $('conceptTable');
+  if (!rows.length) {
+    t.textContent = '';
+    t.appendChild(el('caption', 'small muted', 'No concept has been studied yet.'));
+  } else {
+    table(t, ['Concept', 'Learners', 'Average mastery', '', 'Hints per learner', 'Errors per learner'], rows, (r) => {
+      const tr = el('tr');
+      tr.appendChild(el('td', null, r.concept_id + ' \u2014 ' + r.title));
+      tr.appendChild(el('td', 'num', String(r.learners)));
+      tr.appendChild(el('td', 'num', Math.round(r.avg_mastery * 100) + '%'));
+      const bar = el('td'), mb = el('span', 'minibar'), fill = el('i');
+      fill.style.width = Math.round(r.avg_mastery * 100) + '%';
+      mb.appendChild(fill); bar.appendChild(mb);
+      tr.appendChild(bar);
+      tr.appendChild(el('td', 'num', String(r.avg_hints)));
+      tr.appendChild(el('td', 'num', String(r.avg_errors)));
+      return tr;
+    });
+  }
+  const u = d.usage || {}, box = $('usageBox');
+  box.textContent = '';
+  [['Mode', u.by_mode, ''], ['Language', u.by_language, 'alt'], ['Level', u.by_level, 'alt2']].forEach(([label, m, cls]) => {
+    const entries = Object.entries(m || {});
+    if (!entries.length) return;
+    const grp = el('div', 'grp');
+    grp.appendChild(el('span', 'eyebrow', label));
+    entries.forEach(([k, v]) => grp.appendChild(el('span', 'chip ' + cls, k + ' \u00B7 ' + v)));
+    box.appendChild(grp);
+  });
 }
 
 /* ------------------------------------------------------- evidence feed */
@@ -354,22 +465,34 @@ function renderLearners(d) {
     return;
   }
   table($('learnerTable'),
-    ['Learner', 'Turns', 'XP', 'Streak', 'Mastery', 'Mastered', 'Badges', ''],
+    ['Learner', 'Mode', 'Lang', 'Turns', 'XP', 'Mastery', 'Mastered', 'Badges', ''],
     d.learners,
     (l) => {
       const tr = el('tr');
       tr.appendChild(el('td', null, l.label));
+      tr.appendChild(el('td', null, l.mode || ''));
+      tr.appendChild(el('td', null, (l.language || '').toUpperCase()));
       tr.appendChild(el('td', 'num', String(l.turns)));
       tr.appendChild(el('td', 'num', String(l.xp)));
-      tr.appendChild(el('td', 'num', String(l.streak)));
       tr.appendChild(el('td', 'num', Math.round(l.overall_mastery * 100) + '%'));
-      tr.appendChild(el('td', 'num', `${l.mastered}/${l.total}`));
+      tr.appendChild(el('td', 'num', l.mastered + '/' + l.total));
       tr.appendChild(el('td', 'num', String(l.badges)));
-      const td = el('td');
+      const td = el('td', 'actions');
       const b = el('button', 'btn sm blue', 'Report');
       b.type = 'button';
       b.addEventListener('click', () => showReport(l.learner_id));
-      td.appendChild(b);
+      const pr = el('a', 'btn sm ghost', 'Print');
+      pr.href = '/admin/report/' + encodeURIComponent(l.learner_id);
+      pr.target = '_blank'; pr.rel = 'noopener';
+      const del = el('button', 'btn sm danger', 'Delete');
+      del.type = 'button';
+      del.title = 'Erase this learner and everything they said';
+      del.addEventListener('click', async () => {
+        if (!window.confirm('Delete ' + l.label + ' and everything they said? This cannot be undone.')) return;
+        try { await api('/api/admin/learner/' + encodeURIComponent(l.learner_id), { method: 'DELETE' }); toast('Deleted.'); load(); }
+        catch (e) { toast(e.message, true); }
+      });
+      td.append(b, pr, del);
       tr.appendChild(td);
       return tr;
     });
@@ -416,56 +539,79 @@ const TEXT_HINTS = {
   custom_rules: 'e.g. Always finish with one practical thing to try today. Never use jargon.',
 };
 
+const GROUPS = [
+  ['Who is learning', ['learner_level', 'language', 'tone', 'pace', 'learner_profile', 'constraints']],
+  ['How it teaches', ['story_intro', 'default_mode', 'difficulty_curve', 'response_length', 'custom_rules']],
+  ['Mastery & rewards', ['mastery_unlock_threshold', 'mastery_mastered_at', 'hint_penalty', 'xp_per_turn', 'xp_bonus_no_hint']],
+  ['Grounding', ['strict_grounding', 'require_citations', 'urdu_transliteration']],
+  ['Model & speed', ['model', 'effort', 'extraction_effort', 'max_tokens', 'demo_mode']],
+  ['Safety & privacy', ['rate_limit_per_min', 'max_upload_mb', 'daily_turn_cap', 'retention_days']],
+];
+
+function fieldFor(f, cfg) {
+  const wrap = el('div', 'field');
+  const lab = el('label', null, f.label);
+  lab.setAttribute('for', 'cfg_' + f.key);
+  wrap.appendChild(lab);
+
+  let input;
+  if (f.kind === 'select') {
+    input = el('select');
+    f.options.forEach(o => {
+      const opt = el('option', null, o);
+      opt.value = o;
+      if (cfg[f.key] === o) opt.selected = true;
+      input.appendChild(opt);
+    });
+  } else if (f.kind === 'bool') {
+    input = el('select');
+    [['true', 'On'], ['false', 'Off']].forEach(([v, t]) => {
+      const opt = el('option', null, t);
+      opt.value = v;
+      if (String(!!cfg[f.key]) === v) opt.selected = true;
+      input.appendChild(opt);
+    });
+  } else if (f.kind === 'text') {
+    // free-text settings: who is learning, the operating constraint, extra rules
+    input = el('textarea');
+    input.rows = f.options > 200 ? 3 : 2;
+    input.maxLength = f.options;
+    input.value = cfg[f.key] || '';
+    input.placeholder = TEXT_HINTS[f.key] || '';
+    wrap.classList.add('wide');
+  } else {
+    input = el('input');
+    input.type = 'number';
+    const [min, max, step] = f.options || [0, 100, 1];
+    input.min = min; input.max = max; input.step = step;
+    input.value = cfg[f.key];
+  }
+  input.id = 'cfg_' + f.key;
+  input.dataset.key = f.key;
+  input.dataset.kind = f.kind;
+  wrap.appendChild(input);
+  return wrap;
+}
+
 function renderConfig(payload) {
   CONFIG_SCHEMA = payload.schema;
   const cfg = payload.config;
   const box = $('configFields');
   box.textContent = '';
-
-  payload.schema.forEach(f => {
-    const wrap = el('div', 'field');
-    const lab = el('label', null, f.label);
-    lab.setAttribute('for', 'cfg_' + f.key);
-    wrap.appendChild(lab);
-
-    let input;
-    if (f.kind === 'select') {
-      input = el('select');
-      f.options.forEach(o => {
-        const opt = el('option', null, o);
-        opt.value = o;
-        if (cfg[f.key] === o) opt.selected = true;
-        input.appendChild(opt);
-      });
-    } else if (f.kind === 'bool') {
-      input = el('select');
-      [['true', 'On'], ['false', 'Off']].forEach(([v, t]) => {
-        const opt = el('option', null, t);
-        opt.value = v;
-        if (String(!!cfg[f.key]) === v) opt.selected = true;
-        input.appendChild(opt);
-      });
-    } else if (f.kind === 'text') {
-      // free-text settings: who is learning, the operating constraint, extra rules
-      input = el('textarea');
-      input.rows = f.options > 200 ? 3 : 2;
-      input.maxLength = f.options;
-      input.value = cfg[f.key] || '';
-      input.placeholder = TEXT_HINTS[f.key] || '';
-      wrap.classList.add('wide');
-    } else {
-      input = el('input');
-      input.type = 'number';
-      const [min, max, step] = f.options || [0, 100, 1];
-      input.min = min; input.max = max; input.step = step;
-      input.value = cfg[f.key];
-    }
-    input.id = 'cfg_' + f.key;
-    input.dataset.key = f.key;
-    input.dataset.kind = f.kind;
-    wrap.appendChild(input);
-    box.appendChild(wrap);
-  });
+  const byKey = Object.fromEntries(payload.schema.map(f => [f.key, f]));
+  const placed = new Set();
+  const addGroup = (title, fields) => {
+    if (!fields.length) return;
+    const grp = el('div', 'cfg-group');
+    grp.appendChild(el('div', 'eyebrow', title));
+    const grid = el('div', 'cfg-grid');
+    fields.forEach(f => { placed.add(f.key); grid.appendChild(fieldFor(f, cfg)); });
+    grp.appendChild(grid);
+    box.appendChild(grp);
+  };
+  GROUPS.forEach(([title, keys]) => addGroup(title, keys.map(k => byKey[k]).filter(Boolean)));
+  // anything the server offers that the groups above do not name still gets a control
+  addGroup('Other', payload.schema.filter(f => !placed.has(f.key)));
 
   const mech = $('mechanicsRow');
   mech.textContent = '';
