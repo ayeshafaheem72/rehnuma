@@ -215,6 +215,7 @@ async function build() {
     }
     S.sourceId = out.source_id;
     S.conceptMap = out.concept_map;
+    engineBanner(out.engine);
     showMap(out);
     $('buildNote').textContent = `Ready in ${(out.latency_ms / 1000).toFixed(1)}s.`;
   } catch (e) {
@@ -705,6 +706,19 @@ function revealSpeech(bubble, node, text, then) {
   timer = setTimeout(step, 80);
 }
 
+/* When the AI service is unavailable (billing, an outage, a rate limit) the journey carries on
+   with the offline engine. Say so plainly: it is simpler and template-based, and a learner or a
+   panel should never mistake it for the real thing. */
+function engineBanner(engine) {
+  const n = $('engineNote');
+  if (!n) return;
+  if (engine === 'offline') {
+    n.textContent = 'The AI service is not answering right now, so this is the offline engine: simpler, '
+      + 'template-based replies, still built only from your document. It switches back by itself when the service returns.';
+    n.hidden = false;
+  } else if (engine === 'live') n.hidden = true;
+}
+
 function feedbackRow(out) {
   const row = el('div', 'fb');
   row.appendChild(el('span', null, 'Was that helpful?'));
@@ -812,6 +826,7 @@ function renderTurn(out, live) {
   }
 
   if (out.effective) { S.eff = out.effective; syncPrefs(); }
+  engineBanner(out.engine);
   out.state._currentConcept = (out.adaptation && out.adaptation.focus_concept) || out.concept_id;
   renderBoard(out.state);
   renderStats(out.summary);

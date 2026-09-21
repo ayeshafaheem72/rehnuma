@@ -104,9 +104,12 @@ async function load() {
     renderLearners(DATA);
     renderConfig(await api('/api/config'));
     renderEvents(await api('/api/events'));
+    const down = health.ai_service && !health.ai_service.ok;
     $('healthNote').textContent =
       `${health.status} · up ${Math.round(health.uptime_s)}s · ${health.model}`
-      + (health.api_key_present ? '' : ' · NO API KEY');
+      + (health.api_key_present ? '' : ' · NO API KEY')
+      + (down ? ` · AI SERVICE DOWN (${health.ai_service.reason}) - offline engine active` : '');
+    $('healthNote').style.color = down ? 'var(--lal)' : '';
   } catch (e) { toast(e.message, true); }
 }
 

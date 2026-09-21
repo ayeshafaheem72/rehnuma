@@ -21,8 +21,10 @@ from app.llm import (Choice, Citation, Concept, ConceptMap, GuideTurn,
 SIGNAL_NAMES = ["applied_correctly", "self_corrected", "used_source_vocabulary",
                 "asked_deepening_question", "hint_dependency", "retention"]
 
-HEDGES = ("idk", "i don't know", "i dont know", "not sure", "no idea", "dunno",
-          "confused", "help", "hint", "?", "pata nahi", "samajh nahi")
+# Whole words only: "helps" in a good answer is not a request for help. A question mark is not
+# a hedge either - asking something is a signal of its own, read separately below.
+HEDGES = re.compile(r"(?<!\w)(?:idk|i don'?t know|not sure|no idea|dunno|confused|help me|hint|"
+                    r"pata nahi|samajh nahi|samajh nahi aya)(?!\w)", re.I)
 
 CORRECTIONS = ("actually", "wait", "no —", "no,", "i mean", "sorry", "rather")
 
@@ -206,7 +208,7 @@ def _read_signals(message: str, concept: dict):
     """Heuristics standing in for the model's judgement."""
     low = message.lower().strip()
     words = len(low.split())
-    hedging = any(h in low for h in HEDGES) or words <= 3
+    hedging = bool(HEDGES.search(low)) or words <= 3
     corrected = any(c in low for c in CORRECTIONS)
     asked = low.endswith("?") and words > 4
 

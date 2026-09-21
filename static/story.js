@@ -966,6 +966,7 @@
     return {
       setReady(v) { ready = !!v; refreshGo(); },
       goto(k) { if (k >= n) showEnd(); else goto(k); },
+      overview() { applyCam(cams.overview, 0); },
       destroy() { finish(true); },
       isOpen() { return !gone; },
     };

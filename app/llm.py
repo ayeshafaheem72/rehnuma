@@ -133,6 +133,43 @@ def defang(text) -> str:
     return _OUR_TAGS.sub("", str(text or ""))
 
 
+# ------------------------------------------------- when the AI service is not there
+
+_BILLING = re.compile(r"credit balance|billing|payment|insufficient", re.I)
+
+# What the admin sees on the health line: is the service answering, and if not, why.
+STATUS = {"ok": True, "since": 0.0, "reason": ""}
+
+
+def api_unavailable(e: Exception) -> bool:
+    """True for failures that are the service's or the account's, not ours: billing, a bad or
+    revoked key, an outage, an overload, a rate limit, a timeout. A 400 about anything else is a
+    bug in a request we built, and hiding it behind a fallback would hide the bug."""
+    if not isinstance(e, anthropic.APIError):
+        return False
+    if isinstance(e, anthropic.BadRequestError):
+        return bool(_BILLING.search(str(e)))
+    return True
+
+
+def note_api(ok: bool, err: Exception | None = None):
+    if ok:
+        STATUS.update(ok=True, reason="")
+        return
+    reason = ("credit balance too low" if err is not None and _BILLING.search(str(err))
+              else type(err).__name__ if err is not None else "unavailable")
+    if STATUS["ok"] or STATUS["reason"] != reason:
+        STATUS["since"] = time.time()
+        db.log_event("error", "AI service unavailable, using the offline engine",
+                     {"reason": reason, "detail": str(err)[:200] if err is not None else ""})
+    STATUS.update(ok=False, reason=reason)
+
+
+def _offline(usage):
+    usage.engine = "offline"
+    return usage
+
+
 # ------------------------------------------------- JSON schema plumbing
 
 def _inline_refs(schema: dict) -> dict:
@@ -286,6 +323,7 @@ def usage_dict(usage) -> dict:
         "out": getattr(usage, "output_tokens", 0) or 0,
         "cache_read": getattr(usage, "cache_read_input_tokens", 0) or 0,
         "cache_write": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        "engine": getattr(usage, "engine", "live"),
     }
 
 
@@ -336,11 +374,8 @@ def build_concept_map(raw_text: str, title: str):
     """Returns (concept_map_dict, usage, latency_ms). Every quote in the dict has been
     checked against `raw_text`; see app.grounding."""
     cfg = config.current()
-    if cfg.get("demo_mode"):
-        from app import demo
-        db.log_event("info", "concept map built in demo mode (no API call)")
-        cmap, usage, latency = demo.build_concept_map(raw_text, title)
-    else:
+    cmap = None
+    if not cfg.get("demo_mode"):
         lang = source_language(raw_text)
         user = (
             "Source title: " + defang(title) + "\n"
@@ -349,11 +384,22 @@ def build_concept_map(raw_text: str, title: str):
             "<source_material>\n" + defang(raw_text).strip() + "\n</source_material>\n\n"
             "Build the concept map for this material."
         )
-        cmap, usage, latency = _call(
-            ConceptMap, cfg=cfg, effort=cfg["extraction_effort"], max_tokens=8000,
-            system=[{"type": "text", "text": CONCEPT_SYSTEM}],
-            messages=[{"role": "user", "content": user}],
-        )
+        try:
+            cmap, usage, latency = _call(
+                ConceptMap, cfg=cfg, effort=cfg["extraction_effort"], max_tokens=8000,
+                system=[{"type": "text", "text": CONCEPT_SYSTEM}],
+                messages=[{"role": "user", "content": user}],
+            )
+            note_api(True)
+        except Exception as e:
+            if not (cfg.get("auto_fallback") and api_unavailable(e)):
+                raise
+            note_api(False, e)
+    if cmap is None:
+        from app import demo
+        db.log_event("info", "concept map built by the offline engine (no API call)")
+        cmap, usage, latency = demo.build_concept_map(raw_text, title)
+        _offline(usage)
     payload = cmap.model_dump()
     stats = grounding.verify_concept_map(payload, raw_text)
     db.log_event("info", "grounding check", stats)
@@ -612,12 +658,21 @@ def build_story(concept_map: dict, cfg: dict):
         "<concept_map>" + _map_block(concept_map) + "</concept_map>",
         "<task>Tell the story of this subject as illustrated scenes.</task>",
     ])
-    story, usage, latency = _call(
-        Storyline, cfg=dict(cfg, model=cfg.get("story_model") or cfg["model"]),
-        effort=cfg["extraction_effort"], max_tokens=5000, timeout=75.0,
-        system=[{"type": "text", "text": STORY_SYSTEM}],
-        messages=[{"role": "user", "content": user}],
-    )
+    try:
+        story, usage, latency = _call(
+            Storyline, cfg=dict(cfg, model=cfg.get("story_model") or cfg["model"]),
+            effort=cfg["extraction_effort"], max_tokens=5000, timeout=75.0,
+            system=[{"type": "text", "text": STORY_SYSTEM}],
+            messages=[{"role": "user", "content": user}],
+        )
+        note_api(True)
+    except Exception as e:
+        if not (cfg.get("auto_fallback") and api_unavailable(e)):
+            raise
+        note_api(False, e)
+        from app import demo
+        usage = _offline(type("U", (), {"input_tokens": 0, "output_tokens": 0})())
+        return repair_story(demo.build_story(concept_map, cfg), concept_map), usage, 90
     return repair_story(story.model_dump(), concept_map), usage, latency
 
 
@@ -968,7 +1023,16 @@ def run_turn(concept_map: dict, learner_state: dict, history: list, learner_mess
         from app import demo
         return demo.run_turn(concept_map, learner_state, history, learner_message, cfg)
     system, messages = _turn_request(concept_map, learner_state, history, learner_message, cfg)
-    turn, usage, latency = _call(GuideTurn, cfg=cfg, system=system, messages=messages)
+    try:
+        turn, usage, latency = _call(GuideTurn, cfg=cfg, system=system, messages=messages)
+        note_api(True)
+    except Exception as e:
+        if not (cfg.get("auto_fallback") and api_unavailable(e)):
+            raise
+        note_api(False, e)
+        from app import demo
+        turn, usage, latency = demo.run_turn(concept_map, learner_state, history, learner_message, cfg)
+        _offline(usage)
     return _enforce(turn, concept_map, cfg), usage, latency
 
 
@@ -981,6 +1045,24 @@ def run_turn_stream(concept_map: dict, learner_state: dict, history: list,
         on_text(turn.message)
         return turn, usage, latency
     system, messages = _turn_request(concept_map, learner_state, history, learner_message, cfg)
-    turn, usage, latency = _stream_call(GuideTurn, cfg=cfg, system=system, messages=messages,
-                                        on_text=on_text)
+    sent = []
+
+    def relay(piece):
+        sent.append(piece)
+        on_text(piece)
+
+    try:
+        turn, usage, latency = _stream_call(GuideTurn, cfg=cfg, system=system, messages=messages,
+                                            on_text=relay)
+        note_api(True)
+    except Exception as e:
+        # a reply already half on screen cannot be swapped for another one, so only a
+        # failure before the first word is covered by the offline engine
+        if sent or not (cfg.get("auto_fallback") and api_unavailable(e)):
+            raise
+        note_api(False, e)
+        from app import demo
+        turn, usage, latency = demo.run_turn(concept_map, learner_state, history, learner_message, cfg)
+        _offline(usage)
+        on_text(turn.message)
     return _enforce(turn, concept_map, cfg), usage, latency

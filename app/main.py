@@ -104,6 +104,7 @@ def health(request: Request):
             "model": cfg["model"],
             "demo_mode": cfg["demo_mode"],
             "api_key_present": bool(os.environ.get("ANTHROPIC_API_KEY")),
+            "ai_service": dict(llm.STATUS),
             "sources": len(db.list_sources()),
             "learners": len(db.list_learners()),
         })
@@ -169,7 +170,7 @@ def _build_source(text: str, title: str, truncated: bool, prefs: dict | None = N
         storycache.prefetch(sid, payload, _cfg_for(prefs or {}))
     return {"source_id": sid, "concept_map": public_map(payload), "latency_ms": latency,
             "chars": len(text), "truncated": truncated, "title": title,
-            "grounding": payload.get("grounding")}
+            "grounding": payload.get("grounding"), "engine": u["engine"]}
 
 
 @app.post("/api/source/upload")
@@ -328,6 +329,7 @@ def _finish(lid: str, learner: dict, turn, usage, latency: int, cmap: dict, cfg:
                  latency, u["in"], u["out"])
     out = _turn_payload(turn, st, cfg)
     out["latency_ms"] = latency
+    out["engine"] = u["engine"]
     return out
 
 

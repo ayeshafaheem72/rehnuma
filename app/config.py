@@ -54,6 +54,8 @@ DEFAULTS = {
 
     # --- model ---
     "demo_mode":    False,                # run from templates, no API calls (see app/demo.py)
+    "auto_fallback": True,                # if the AI service fails (billing, outage, rate limit),
+                                          # carry on with the offline engine instead of an error
     "model":        "claude-opus-5",
     "effort":       "low",                # per-turn reasoning depth: low keeps the
                                           # conversation responsive; raise for harder material
@@ -94,7 +96,8 @@ SCHEMA = [
     ("strict_grounding", "bool", None, "Strict grounding"),
     ("require_citations", "bool", None, "Require citations"),
     ("urdu_transliteration", "bool", None, "Roman Urdu alongside script"),
-    ("demo_mode", "bool", None, "Demo fallback (no API)"),
+    ("demo_mode", "bool", None, "Offline engine only (no API)"),
+    ("auto_fallback", "bool", None, "Fall back to offline engine if the AI service fails"),
     ("model", "select", ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"], "Model"),
     ("story_model", "select", ["claude-sonnet-5", "claude-opus-5", "claude-haiku-4-5"], "Model for the story"),
     ("effort", "select", ["low", "medium", "high", "xhigh"], "Reasoning effort (per turn)"),
@@ -111,7 +114,7 @@ LANGUAGE_NAMES = {"en": "English", "ur": "Urdu", "mixed": "English + Urdu (code-
 # What an unauthenticated learner's browser is told. Model, limits and caps stay server-side.
 PUBLIC_KEYS = ("language", "learner_level", "tone", "pace", "default_mode", "story_intro",
                "mechanics", "mastery_unlock_threshold", "mastery_mastered_at",
-               "urdu_transliteration", "demo_mode", "difficulty_curve")
+               "urdu_transliteration", "demo_mode", "difficulty_curve", "auto_fallback")
 
 _BY_KEY = {k: (kind, opts, label) for k, kind, opts, label in SCHEMA}
 _CONTROL = re.compile(r"[\x00-\x1f\x7f<>]")
