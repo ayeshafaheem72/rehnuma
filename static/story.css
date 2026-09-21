@@ -1,0 +1,204 @@
+/* ============================================================================
+   THE STORY - a Prezi-style road of illustrated scenes
+   The stage is a window onto a large "world"; the camera is that world's
+   transform. Posters are drawn by story.js; everything below is presentation.
+   Uses the tokens from style.css.
+   ========================================================================= */
+
+.story-frame {
+  max-width: 1240px; width: 100%; margin: 0 auto;
+  padding: 12px var(--gutter) 26px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.story-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.story-top .spacer { flex: 1 1 auto; }
+.story-title { font-size: 24px; line-height: 1.15; margin-top: 2px; }
+.story-title.rtl { line-height: 1.9; }
+
+.story-stage {
+  position: relative;
+  height: clamp(360px, 56vh, 600px);
+  overflow: hidden;
+  border: var(--line-light);
+  box-shadow: var(--pop-light);
+  background: linear-gradient(180deg, #08152B 0%, #0F2138 55%, #17335A 100%);
+  outline: none;
+  touch-action: pan-y;
+}
+.story-stage:focus-visible { outline: 3px solid var(--zard); outline-offset: 3px; }
+
+/* two far layers that trail the camera at a fraction of its speed: depth for free */
+.story-far, .story-near {
+  position: absolute; inset: 0; pointer-events: none;
+  background-repeat: repeat-x;
+}
+.story-far {
+  background-size: 900px 420px; background-position: 0 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='420'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='60' cy='50' r='1.6' opacity='.7'/%3E%3Ccircle cx='140' cy='120' r='1.2' opacity='.5'/%3E%3Ccircle cx='230' cy='40' r='1.8' opacity='.8'/%3E%3Ccircle cx='310' cy='90' r='1.1' opacity='.5'/%3E%3Ccircle cx='400' cy='30' r='1.5' opacity='.7'/%3E%3Ccircle cx='470' cy='140' r='1.3' opacity='.55'/%3E%3Ccircle cx='560' cy='60' r='1.9' opacity='.85'/%3E%3Ccircle cx='640' cy='110' r='1.2' opacity='.5'/%3E%3Ccircle cx='720' cy='45' r='1.6' opacity='.7'/%3E%3Ccircle cx='800' cy='130' r='1.3' opacity='.55'/%3E%3Ccircle cx='860' cy='70' r='1.1' opacity='.5'/%3E%3Ccircle cx='180' cy='190' r='1' opacity='.4'/%3E%3Ccircle cx='520' cy='210' r='1.1' opacity='.4'/%3E%3C/g%3E%3Cpath d='M0 420V300L90 250 170 290 260 220 360 285 450 240 540 300 640 235 740 285 830 245 900 300V420Z' fill='%2312284a' opacity='.85'/%3E%3C/svg%3E");
+}
+.story-near {
+  background-size: 700px 240px; background-position: 0 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='700' height='240'%3E%3Cpath d='M0 240V180Q90 120 200 170T400 160T600 178T700 180V240Z' fill='%230b1d36' opacity='.9'/%3E%3C/svg%3E");
+}
+
+.story-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.story-world .road { position: absolute; left: 0; top: 0; overflow: visible; }
+.road-edge     { stroke: var(--ink); }
+.road-fill     { stroke: #2C4165; }
+.road-dash     { stroke: var(--zard); stroke-dasharray: 16 16; opacity: .9; }
+.road-progress { stroke: #FFE58A; opacity: .28; }
+
+/* ---- a scene poster */
+.scene {
+  position: absolute;
+  overflow: hidden;
+  background: #000;
+  border: 4px solid var(--ink);
+  box-shadow: 9px 9px 0 rgba(0,0,0,.5);
+  transition: filter .6s ease;
+  filter: saturate(.72) brightness(.82);
+}
+.scene.on { filter: none; }
+.scene svg.art { width: 100%; height: 100%; display: block; }
+.art .t { font-family: var(--body); }
+.art .t.display { font-family: var(--display); letter-spacing: -.01em; }
+.art .t.mono { font-family: var(--mono); }
+.art .t.urdu { font-family: var(--urdu); }
+.art text { user-select: none; }
+
+/* Entrance: everything on the poster lands in turn once it is the scene on screen.
+   `both` holds each piece hidden through its delay; scenes not on screen stay whole. */
+@keyframes pop-in  { from { opacity: 0; transform: translateY(12px) scale(.93); } to { opacity: 1; transform: none; } }
+@keyframes grow-y  { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes seg-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes draw    { from { stroke-dashoffset: 46; } to { stroke-dashoffset: 0; } }
+@keyframes flow    { to { stroke-dashoffset: -28; } }
+@keyframes spin    { to { transform: rotate(360deg); } }
+@keyframes twinkle { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+@keyframes drift   { from { transform: translateX(-26px); } to { transform: translateX(26px); } }
+@keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+
+.art .pop, .art .bar { transform-box: fill-box; transform-origin: 50% 70%; }
+.art .bar { transform-origin: 50% 100%; }
+.art .tick { stroke-dasharray: 46; stroke-dashoffset: 0; }
+.art .spin-slow, .art .breathe, .art .wheel, .art .drift { transform-box: fill-box; transform-origin: center; }
+
+.scene.on .art .pop  { animation: pop-in .55s cubic-bezier(.2,1.25,.4,1) both; animation-delay: calc(var(--i, 0) * 130ms + 380ms); }
+.scene.on .art .bar  { animation: grow-y .8s cubic-bezier(.2,.9,.3,1) both; animation-delay: calc(var(--i, 0) * 130ms + 520ms); }
+.scene.on .art .seg  { animation: seg-in .5s ease both; animation-delay: calc(var(--i, 0) * 150ms + 380ms); }
+.scene.on .art .tick { animation: draw .5s ease both; animation-delay: calc(var(--i, 0) * 230ms + 800ms); }
+.scene.on .art .flow, .scene.on .art .flow-arrow { animation: flow 1.4s linear infinite; }
+.scene.on .art .spin-slow { animation: spin 40s linear infinite; }
+.scene.on .art .twinkle { animation: twinkle 2.6s ease-in-out infinite; }
+.scene.on .art .drift { animation: drift 16s ease-in-out infinite alternate; }
+.scene.on .art .breathe { animation: breathe 3.2s ease-in-out infinite; }
+
+/* grounding on the poster itself: the line of the source this scene rests on */
+.src-chip {
+  position: absolute; left: 12px; bottom: 10px; z-index: 2;
+  font: 700 11px var(--mono); letter-spacing: .04em;
+  padding: 4px 9px; cursor: pointer;
+  background: var(--sabz); color: #fff; border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink);
+}
+.src-chip:hover { background: var(--zard); color: var(--ink); }
+.src-pop {
+  position: absolute; left: 12px; bottom: 44px; z-index: 3; max-width: min(62%, 420px);
+  background: var(--chrome); color: var(--ink); border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink);
+  padding: 9px 12px; font-size: 13.5px; line-height: 1.5; font-style: italic;
+}
+
+/* ---- the truck */
+.truck-wrap {
+  position: absolute; left: 0; top: 0; width: 86px; height: 56px; z-index: 3;
+  transform-origin: 43px 46px; pointer-events: none;
+  filter: drop-shadow(3px 4px 0 rgba(0,0,0,.45));
+}
+.truck { display: block; overflow: visible; }
+.truck.moving .wheel { animation: spin .45s linear infinite; }
+.truck.moving { animation: rumble .3s ease-in-out infinite; }
+@keyframes rumble { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+
+/* ---- narration and controls */
+.story-hud {
+  display: flex; gap: 18px; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  background: var(--ink-2); border: var(--line-light); box-shadow: var(--pop-light);
+  padding: 14px 18px;
+}
+.speaker { display: flex; gap: 14px; flex: 1 1 460px; min-width: 0; align-items: flex-start; }
+.avatar {
+  flex: none; width: 54px; height: 54px; border-radius: 50%;
+  border: 3px solid var(--ink); box-shadow: var(--pop-sm);
+  display: grid; place-items: center;
+  font: 800 24px var(--display); color: var(--ink);
+  background:
+    radial-gradient(circle, var(--chrome) 0 57%, transparent 59%),
+    conic-gradient(var(--rani) 0 45deg, var(--zard) 45deg 90deg, var(--sabz) 90deg 135deg, var(--firozi) 135deg 180deg,
+                   var(--rani) 180deg 225deg, var(--zard) 225deg 270deg, var(--sabz) 270deg 315deg, var(--firozi) 315deg 360deg);
+}
+.say-col { min-width: 0; flex: 1 1 auto; }
+.narration { font-size: 18.5px; line-height: 1.55; min-height: 3.1em; margin-top: 3px; overflow-wrap: anywhere; }
+.narration.urdu { line-height: 2.15; font-size: 20px; }
+.narration.revealing { cursor: pointer; }
+.narration.revealing::after {
+  content: ""; display: inline-block; width: 8px; height: 1.05em; margin-inline-start: 3px;
+  vertical-align: text-bottom; background: var(--zard); animation: caret 1s steps(1) infinite;
+}
+.story-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.dots { display: flex; gap: 7px; align-items: center; }
+.dot {
+  width: 15px; height: 15px; padding: 0; border-radius: 50%; cursor: pointer;
+  background: transparent; border: 2px solid var(--chrome-dim);
+  transition: transform .25s cubic-bezier(.3,1.6,.4,1), background .25s;
+}
+.dot.done { background: var(--sabz); border-color: var(--sabz); }
+.dot.on   { background: var(--zard); border-color: var(--zard); transform: scale(1.35); }
+.dot:focus-visible { outline: 3px solid var(--zard); outline-offset: 2px; }
+
+/* ---- the end of the road */
+.story-end {
+  position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(ellipse at center, rgba(8,20,38,.05), rgba(8,20,38,.78));
+  opacity: 0; pointer-events: none; transition: opacity .6s ease .5s;
+}
+.story-end.on { opacity: 1; pointer-events: auto; }
+.end-box {
+  background: var(--chrome); color: var(--ink);
+  border: 3px solid var(--ink); box-shadow: 8px 8px 0 rgba(0,0,0,.55);
+  padding: 22px 26px; width: min(600px, 100%);
+  display: flex; flex-direction: column; gap: 12px; align-items: center; text-align: center;
+}
+.end-box .eyebrow { color: #6B5F49; }
+.end-line { margin: 0; font: 800 24px/1.25 var(--display); text-wrap: balance; }
+.end-line.urdu { line-height: 2; font-size: 24px; }
+.end-box .small { color: #6B5F49; }
+.end-box .row { justify-content: center; }
+
+/* ---- phones: the poster keeps its picture and shows the items as real text */
+.scene.compact { background: var(--chrome); color: var(--ink); }
+.compact-card { display: flex; flex-direction: column; height: 100%; }
+.compact-card svg.art { flex: 0 0 38%; height: 38%; }
+.compact-body { padding: 12px 14px 44px; overflow: auto; }
+.compact-title { font: 800 20px/1.2 var(--display); margin-bottom: 8px; }
+.compact-title.urdu { line-height: 1.9; }
+.compact-items { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.compact-items li {
+  padding: 7px 10px; font-weight: 600; font-size: 14.5px; line-height: 1.4;
+  background: #fff; border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink);
+}
+.compact-items li.urdu { line-height: 1.9; }
+
+@media (max-width: 700px) {
+  .story-stage { height: clamp(430px, 74vh, 660px); }
+  .story-title { font-size: 21px; }
+  .story-hud { padding: 12px 14px; }
+  .narration { font-size: 16.5px; }
+  .story-controls { width: 100%; justify-content: space-between; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene.on .art .pop, .scene.on .art .bar, .scene.on .art .seg, .scene.on .art .tick,
+  .scene.on .art .flow, .scene.on .art .flow-arrow, .scene.on .art .spin-slow,
+  .scene.on .art .twinkle, .scene.on .art .drift, .scene.on .art .breathe,
+  .truck.moving, .truck.moving .wheel { animation: none; }
+  .scene, .story-end { transition: none; }
+}

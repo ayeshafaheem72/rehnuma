@@ -1,0 +1,106 @@
+/* ============================================================================
+   Learner screen additions: language pills, the "how it is adapting" card,
+   live settings, voice controls, feedback. Uses the tokens from style.css.
+   ========================================================================= */
+
+/* ---- language / mic pills, one radio group each */
+.pills { display: inline-flex; flex-wrap: wrap; gap: 0; }
+.pill-btn {
+  font: 700 13px var(--display);
+  padding: 8px 15px;
+  color: var(--chrome);
+  background: var(--ink-3);
+  border: var(--line-light);
+  margin-left: -3px;
+  cursor: pointer;
+  transition: background .12s, color .12s, transform .1s;
+}
+.pill-btn:first-child { margin-left: 0; }
+.pill-btn[lang="ur"] { font-family: var(--urdu); font-size: 16px; line-height: 1.5; padding-block: 3px; }
+.pill-btn:hover { background: var(--ubl-deep); }
+.pill-btn[aria-checked="true"] {
+  background: var(--zard); color: var(--ink); border-color: var(--ink);
+  position: relative; z-index: 1; box-shadow: 3px 3px 0 var(--ink);
+}
+.pill-btn.sm { font-size: 11px; padding: 6px 10px; }
+.pill-btn.sm[lang="ur"] { font-size: 14px; }
+.pill-btn:focus-visible { outline: 3px solid var(--zard); outline-offset: 2px; z-index: 2; }
+.panel.cream .pill-btn { color: var(--ink); background: #fff; border-color: var(--ink); }
+.panel.cream .pill-btn:hover { background: var(--chrome-2); }
+.panel.cream .pill-btn[aria-checked="true"] { background: var(--zard); }
+
+/* ---- "who is learning" on the setup screen */
+.who-block { margin-top: 16px; padding-top: 14px; border-top: 2px dashed rgba(8,20,38,.25); }
+.who-row { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; margin-top: 8px; }
+.who-block input[type="text"] { width: 100%; }
+label.inline { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: #6B5F49; }
+label.inline select { min-width: 140px; }
+
+/* the check that the map only says what the document says */
+.ground-note {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin-bottom: 12px; padding: 9px 12px;
+  background: rgba(0,168,120,.14);
+  border: 2px solid var(--sabz);
+  font-size: 12.5px; line-height: 1.45; color: var(--chrome);
+}
+.ground-note b { color: var(--sabz); font-family: var(--mono); letter-spacing: .04em; }
+.ground-note[hidden] { display: none; }
+
+/* ---- how it is adapting */
+.adapt-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 7px 0; border-bottom: 1px dashed rgba(169,154,124,.35);
+}
+.adapt-row:last-of-type { border-bottom: 0; }
+.adapt-row .k { font: 700 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--chrome-dim); flex: none; }
+.adapt-row .v { font-size: 13.5px; font-weight: 600; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.adapt-row .v.changed { animation: adapt-flash 1.2s ease; }
+@keyframes adapt-flash { 0% { background: var(--zard); color: var(--ink); } 100% { background: transparent; } }
+.dots5 { display: inline-flex; gap: 5px; vertical-align: middle; }
+.dots5 i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--chrome-dim); display: block; }
+.dots5 i.on { background: var(--rani); border-color: var(--rani); }
+.adapt-why { margin: 8px 0 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--chrome-dim); line-height: 1.45; }
+.adapt-why li { padding-left: 16px; position: relative; margin-top: 4px; }
+.adapt-why li::before { content: "\25B8"; position: absolute; left: 0; color: var(--zard); }
+
+/* ---- live settings */
+.pref-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+#prefPanel .field { margin-bottom: 10px; }
+#prefPanel .row { margin-top: 4px; }
+
+/* ---- voice */
+.voice-note {
+  padding: 8px 14px; background: var(--ink-3); border-top: var(--line-light);
+  font-size: 12.5px; color: var(--chrome); line-height: 1.45;
+}
+.voice-note.warn { background: #4a1f10; color: #ffd9cf; }
+.voice-note[hidden] { display: none; }
+.mic-lang { align-self: center; }
+.btn[aria-pressed="true"] { background: var(--zard); color: var(--ink); border-color: var(--ink); }
+.composer .say-box.listening { box-shadow: 0 0 0 3px var(--lal), var(--pop-sm); }
+
+/* ---- reply feedback */
+.fb { display: flex; align-items: center; gap: 6px; margin-top: 11px; font-size: 11.5px; color: #6B5F49; }
+.fb button {
+  font-size: 15px; line-height: 1; padding: 4px 8px; cursor: pointer;
+  background: #fff; border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink);
+}
+.fb button:hover:not(:disabled) { background: var(--zard); }
+.fb button:disabled { opacity: .5; cursor: default; }
+.fb .thanks { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+
+/* a reply still being written */
+.bubble.streaming .say::after {
+  content: ""; display: inline-block; width: 8px; height: 1.05em; margin-inline-start: 3px;
+  vertical-align: text-bottom; background: var(--rani); animation: caret 1s steps(1) infinite;
+}
+
+@media (max-width: 900px) {
+  .pref-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+  .who-row { gap: 10px; }
+  .pill-btn { padding: 8px 12px; }
+  .mic-lang { order: 3; }
+}

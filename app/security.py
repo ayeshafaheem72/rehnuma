@@ -176,6 +176,11 @@ class SecurityHeadersMiddleware:
                     headers.setdefault(k, v)
                 if is_api:
                     headers["Cache-Control"] = "no-store"
+                elif "cache-control" not in headers:
+                    # Pages and scripts revalidate on every load (a cheap 304 when nothing has
+                    # changed). Without this a browser may serve yesterday's script for hours
+                    # after a deploy, which is how a fixed bug looks unfixed to the panel.
+                    headers["Cache-Control"] = "no-cache"
             await send(message)
 
         await self.app(scope, receive, send_with_headers)
