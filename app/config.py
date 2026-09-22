@@ -59,7 +59,10 @@ DEFAULTS = {
     "model":        "claude-opus-5",
     "effort":       "low",                # per-turn reasoning depth: low keeps the
                                           # conversation responsive; raise for harder material
-    "extraction_effort": "low",           # concept-map and story build
+    "extraction_effort": "medium",        # concept-map and story build - "low" let the story drift
+                                          # out of the requested language on later scenes (measured
+                                          # with the real model); "medium" held it, for ~40-45% more
+                                          # latency on this call only
     "story_model":  "claude-sonnet-5",    # the story is narration, not judgement: a faster model
                                           # writes it in about half the time (Urdu especially)
     "max_tokens":   4000,
