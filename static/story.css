@@ -118,6 +118,17 @@
 .truck.moving { animation: rumble .3s ease-in-out infinite; }
 @keyframes rumble { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
 
+/* ---- the workshop bench: no world to pan, cards slide past a fixed station dock */
+.carousel-card {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%,-50%);
+}
+.bench-dock-wrap {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 3;
+  filter: drop-shadow(2px 3px 0 rgba(0,0,0,.45));
+  pointer-events: none;
+}
+
 /* ---- narration and controls */
 .story-hud {
   display: flex; gap: 18px; flex-wrap: wrap; align-items: center; justify-content: space-between;

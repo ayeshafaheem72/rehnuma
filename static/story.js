@@ -651,6 +651,7 @@
       route: { fill: '#2C4165', dash: '#FFC402', progress: '#FFE58A' },
       badge: { fill: '#FFC402', text: INK },
       startColor: '#00A878', endColor: '#E6006E',
+      spread: 1, geoY: (k, c) => c.padY + c.amp + (k % 2 ? c.amp : -c.amp * 0.2),
       decor(rsvg, x, y, sz) {
         rsvg.append(s('g', { transform: `translate(${x} ${y}) scale(${sz})` },
           s('rect', { x: -3, y: -8, width: 6, height: 16, fill: '#4A3A2A' }),
@@ -661,9 +662,11 @@
     },
     challenge: {
       sky: SKY_CHALLENGE,
-      route: { fill: '#1E6B46', dash: '#F2E9D8', progress: '#FF9A86' },
+      route: { fill: '#1E6B46', dash: '#F2E9D8', progress: '#FF9A86', widths: [40, 30, 4] },
       badge: { fill: '#B32210', text: CREAM },
       startColor: '#00A878', endColor: '#B32210',
+      // an ascending bracket, three stops to a tier, instead of a flat road's even wave
+      spread: 1.5, geoY: (k, c) => c.padY + c.amp * 0.25 + (k % 3) * (c.ch * 0.42),
       decor(rsvg, x, y, sz) {
         rsvg.append(s('g', { transform: `translate(${x} ${y}) scale(${sz})` },
           s('rect', { x: -7, y: -18, width: 3, height: 18, fill: '#D9B173', stroke: INK, 'stroke-width': 1.5 }),
@@ -676,9 +679,13 @@
     },
     tour: {
       sky: SKY_TOUR,
-      route: { fill: '#123A66', dash: '#F2E9D8', progress: '#9ADBFF' },
+      // no road-bed at all - just a thin trail, so this reads as a flight path over a map
+      route: { fill: '#123A66', dash: '#F2E9D8', progress: '#9ADBFF', widths: [7, 0, 3] },
       badge: { fill: '#0070B8', text: CREAM },
       startColor: '#0070B8', endColor: '#00B4D8',
+      // pins scattered over a territory, not stops in a line - a sine wander plus per-stop jitter
+      spread: 1.9,
+      geoY: (k, c) => c.padY + c.amp * 1.1 + Math.sin(k * 2.3) * c.amp * 0.95 + (rng(k * 17 + 11)() - 0.5) * c.ch * 0.5,
       decor(rsvg, x, y, sz) { rsvg.append(icon('pin', x, y - 16 * sz, 30 * sz, '#E6006E', 2)); },
       vehicle: paperPlane,
       nouns: { unit: 'Stop', endMeta: 'The end of the journey', endEyebrow: 'Journey complete' },
@@ -688,6 +695,8 @@
       route: { fill: '#4A4030', dash: '#FFC402', progress: '#FFE58A' },
       badge: { fill: '#8A8064', text: INK },
       startColor: '#FFC402', endColor: '#FF4530',
+      // no journey at all: one station fixed in view, the next slides in from the side
+      layout: 'carousel',
       decor(rsvg, x, y, sz) {
         rsvg.append(s('g', { transform: `translate(${x} ${y}) scale(${sz})` },
           s('circle', { r: 7, fill: '#8A8064', stroke: INK, 'stroke-width': 2 }),
@@ -775,11 +784,14 @@
       posters.length = 0;
       if (compact) { cw = clamp(W - 24, 250, 520); ch = clamp(H - 118, 270, 560); }
       else { ch = clamp(H - 128, 200, 560); cw = Math.round(ch * (640 / 360)); if (cw > W * 0.9) { cw = Math.round(W * 0.9); ch = Math.round(cw * (360 / 640)); } }
-      const gx = Math.round(cw * 0.5), amp = Math.round(ch * 0.2), padX = Math.round(W * 0.5), padY = 90;
+
+      if (THEME.layout === 'carousel') { buildCarousel(); return; }
+
+      const gx = Math.round(cw * 0.5), amp = Math.round(ch * 0.2) * (THEME.spread || 1), padX = Math.round(W * 0.5), padY = 90;
       const worldW = padX * 2 + n * cw + (n - 1) * gx, worldH = ch + amp * 2 + padY * 2 + 60;
       world.style.width = worldW + 'px'; world.style.height = worldH + 'px';
       geo = scenes.map((_, k) => {
-        const x = padX + k * (cw + gx), y = padY + amp + (k % 2 ? amp : -amp * 0.2) ;
+        const x = padX + k * (cw + gx), y = THEME.geoY(k, { padY, amp, ch });
         return { x, y, cx: x + cw / 2, cy: y + ch / 2, road: { x: x + cw / 2, y: y + ch + 34 } };
       });
 
@@ -789,8 +801,9 @@
       const pts = [{ x: geo[0].road.x - cw * 0.9, y: geo[0].road.y + 6 }].concat(geo.map(g => g.road), [{ x: geo[n - 1].road.x + cw * 0.9, y: geo[n - 1].road.y - 6 }]);
       let d = `M${pts[0].x} ${pts[0].y}`;
       for (let k = 1; k < pts.length; k++) { const mx = (pts[k - 1].x + pts[k].x) / 2; d += ` C${mx} ${pts[k - 1].y} ${mx} ${pts[k].y} ${pts[k].x} ${pts[k].y}`; }
-      const layers = [['road-edge', 46, INK], ['road-fill', 36, THEME.route.fill], ['road-dash', 3, THEME.route.dash]];
-      layers.forEach(([cls, w, col]) => rsvg.append(s('path', { d, class: cls, stroke: col, 'stroke-width': w, fill: 'none', 'stroke-linecap': 'round' })));
+      const [edgeW, fillW, dashW] = THEME.route.widths || [46, 36, 3];
+      const layers = [['road-edge', edgeW, INK], ['road-fill', fillW, THEME.route.fill], ['road-dash', dashW, THEME.route.dash]];
+      layers.filter(([, w]) => w > 0).forEach(([cls, w, col]) => rsvg.append(s('path', { d, class: cls, stroke: col, 'stroke-width': w, fill: 'none', 'stroke-linecap': 'round' })));
       roadPath = s('path', { d, fill: 'none', stroke: 'none' });
       rsvg.append(roadPath);
       pathLen = roadPath.getTotalLength();
@@ -811,7 +824,7 @@
       const endFlag = flagSvg(THEME.endColor); endFlag.setAttribute('transform', `translate(${pts[pts.length - 1].x - 30} ${pts[pts.length - 1].y - 22})`);
       rsvg.append(startFlag, endFlag);
       // the part of the route already travelled lights up
-      progress = s('path', { d, class: 'road-progress', stroke: THEME.route.progress, fill: 'none', 'stroke-linecap': 'round', 'stroke-width': 8 });
+      progress = s('path', { d, class: 'road-progress', stroke: THEME.route.progress, fill: 'none', 'stroke-linecap': 'round', 'stroke-width': Math.max(3, dashW + 3) });
       progress.style.strokeDasharray = pathLen; progress.style.strokeDashoffset = pathLen;
       rsvg.append(progress);
       world.append(rsvg);
@@ -822,29 +835,9 @@
       truckEl = h('div', 'truck-wrap'); truckEl.append(truckSvg);
 
       scenes.forEach((sc, k) => {
-        const uid = `${Date.now().toString(36)}${k}`;
-        const card = h('section', 'scene' + (compact ? ' compact' : ''));
+        const card = makeSceneCard(sc, k);
         card.style.left = geo[k].x + 'px'; card.style.top = geo[k].y + 'px';
         card.style.width = cw + 'px'; card.style.height = ch + 'px';
-        card.setAttribute('aria-label', `${THEME.nouns.unit} ${k + 1} of ${n}: ${sc.title}`);
-        let art;
-        try { art = compact ? drawCompact(sc, k, n, uid, THEME.sky) : drawScene(sc, k, n, uid, THEME.sky); }
-        catch (e) { art = drawCompact(sc, k, n, uid, THEME.sky); }
-        card.append(art);
-        // the source line this scene rests on: the story is grounded like everything else
-        const q = opts.quotes && opts.quotes[sc.quote_id];
-        if (q) {
-          const chip = h('button', 'src-chip', 'source ' + sc.quote_id); chip.type = 'button';
-          chip.title = 'The line in your material this scene rests on';
-          chip.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const open = card.querySelector('.src-pop');
-            if (open) { open.remove(); return; }
-            const pop_ = h('div', 'src-pop', '“' + q + '”');
-            card.append(pop_);
-          });
-          card.append(chip);
-        }
         world.append(card);
         posters.push(card);
       });
@@ -854,6 +847,80 @@
       placeTruck(idx < 0 ? 0 : Math.min(idx, n - 1), true);
     }
     let progress = null;
+
+    /* the art and source chip are the same regardless of theme - only where the card
+       ends up (a spot in a pannable world, or a slot in a fixed carousel) differs */
+    function makeSceneCard(sc, k) {
+      const uid = `${Date.now().toString(36)}${k}`;
+      const card = h('section', 'scene' + (compact ? ' compact' : ''));
+      card.setAttribute('aria-label', `${THEME.nouns.unit} ${k + 1} of ${n}: ${sc.title}`);
+      let art;
+      try { art = compact ? drawCompact(sc, k, n, uid, THEME.sky) : drawScene(sc, k, n, uid, THEME.sky); }
+      catch (e) { art = drawCompact(sc, k, n, uid, THEME.sky); }
+      card.append(art);
+      // the source line this scene rests on: the story is grounded like everything else
+      const q = opts.quotes && opts.quotes[sc.quote_id];
+      if (q) {
+        const chip = h('button', 'src-chip', 'source ' + sc.quote_id); chip.type = 'button';
+        chip.title = 'The line in your material this scene rests on';
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const open = card.querySelector('.src-pop');
+          if (open) { open.remove(); return; }
+          const pop_ = h('div', 'src-pop', '“' + q + '”');
+          card.append(pop_);
+        });
+        card.append(chip);
+      }
+      return card;
+    }
+
+    /* ---- the workshop bench: no world to pan, one station fixed in view at a time,
+       the next pulled in from the side while the last is set aside */
+    let dockPts = [], vehicleG = null;
+    function buildCarousel() {
+      world.style.width = '100%'; world.style.height = '100%';
+      const dockW = Math.min(Math.max(W - 40, 160), Math.max(160, n * 56));
+      const dock = s('svg', { class: 'bench-dock', width: dockW, height: 64, viewBox: `0 0 ${dockW} 64`, 'aria-hidden': 'true' });
+      dock.append(s('line', { x1: 8, y1: 32, x2: dockW - 8, y2: 32, stroke: THEME.route.fill, 'stroke-width': 10, 'stroke-linecap': 'round' }));
+      dock.append(s('line', { x1: 8, y1: 32, x2: dockW - 8, y2: 32, stroke: THEME.route.dash, 'stroke-width': 2, 'stroke-dasharray': '10 8' }));
+      dockPts = scenes.map((_, k) => n > 1 ? 20 + k * ((dockW - 40) / (n - 1)) : dockW / 2);
+      dockPts.forEach((x, k) => {
+        const stop = s('g', { transform: `translate(${x} 32)`, class: 'stop-tyre', 'data-k': k });
+        stop.append(s('circle', { r: 15, fill: INK }), s('circle', { r: 10, fill: THEME.badge.fill, stroke: INK, 'stroke-width': 2.5 }));
+        stop.append(s('text', { 'text-anchor': 'middle', y: 4, 'font-size': 11, 'font-weight': 800, fill: THEME.badge.text, class: 't mono' }, String(k + 1)));
+        dock.append(stop);
+      });
+      vehicleG = s('g', { class: 'carousel-vehicle' }, THEME.vehicle());
+      vehicleG.setAttribute('transform', `translate(${dockPts[0] - 18} 6) scale(0.5)`);
+      dock.append(vehicleG);
+      const dockWrap = h('div', 'bench-dock-wrap'); dockWrap.append(dock);
+      world.append(dockWrap);
+
+      scenes.forEach((sc, k) => {
+        const card = makeSceneCard(sc, k);
+        card.classList.add('carousel-card');
+        card.style.width = cw + 'px'; card.style.height = ch + 'px';
+        world.append(card);
+        posters.push(card);
+      });
+    }
+    function placeCarousel(k, instant) {
+      const still = instant || calm();
+      posters.forEach((card, j) => {
+        const off = j - k;
+        card.style.transition = still ? 'none' : 'transform .5s cubic-bezier(.4,0,.2,1), opacity .4s ease';
+        card.style.transform = `translate(-50%,-50%) translateX(${off * 115}%)`;
+        card.style.opacity = off === 0 ? '1' : '0';
+        card.style.zIndex = off === 0 ? '2' : '1';
+        card.style.pointerEvents = off === 0 ? 'auto' : 'none';
+      });
+      const dx = dockPts[clamp(k, 0, dockPts.length - 1)];
+      if (vehicleG && dx !== undefined) {
+        vehicleG.style.transition = still ? 'none' : 'transform .5s cubic-bezier(.4,0,.2,1)';
+        vehicleG.setAttribute('transform', `translate(${dx - 18} 6) scale(0.5)`);
+      }
+    }
 
     function camAt(cx, cy, sc) { return { x: W / 2 - cx * sc, y: H / 2 - cy * sc, s: sc }; }
     function applyCam(c, ms, ease) {
@@ -969,6 +1036,11 @@
           } else scheduleNext(sc.narration);
         });
       };
+      if (THEME.layout === 'carousel') {
+        placeCarousel(k, from < 0 || o.instant);
+        timers.push(setTimeout(arrive, (from < 0 || o.instant || calm()) ? 0 : 420));
+        return;
+      }
       if (from < 0 || o.instant) {
         // opening move: start pulled all the way back and fly in
         applyCam(cams.overview, 0);
@@ -1016,8 +1088,17 @@
       line.setAttribute('dir', isRtl(story.closing) ? 'rtl' : 'ltr');
       dots.querySelectorAll('.dot').forEach(d => { d.classList.remove('on'); d.classList.add('done'); });
       updateHud();
-      applyCam(cams.overview, 1300, 'cubic-bezier(.4,0,.2,1)');
-      drive(pathLen * 0.985, 1300);
+      if (THEME.layout === 'carousel') {
+        const still = calm();
+        posters.forEach(card => {
+          card.style.transition = still ? 'none' : 'transform .5s ease, opacity .4s ease';
+          card.style.transform = 'translate(-50%,-50%) scale(.92)';
+          card.style.opacity = '.3'; card.style.pointerEvents = 'none';
+        });
+      } else {
+        applyCam(cams.overview, 1300, 'cubic-bezier(.4,0,.2,1)');
+        drive(pathLen * 0.985, 1300);
+      }
       endCard.classList.add('on');
       refreshGo();
       if (opts.onProgress) opts.onProgress(n);
@@ -1055,7 +1136,14 @@
     let resizeTimer = 0;
     function onResize() {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => { if (gone) return; const k = Math.max(0, idx); build(); posters.forEach((p, j) => p.classList.toggle('on', j === k && !ended)); applyCam(ended ? cams.overview : cams[k], 0); }, 160);
+      resizeTimer = setTimeout(() => {
+        if (gone) return;
+        const k = Math.max(0, idx);
+        build();
+        posters.forEach((p, j) => p.classList.toggle('on', j === k && !ended));
+        if (THEME.layout === 'carousel') placeCarousel(k, true);
+        else applyCam(ended ? cams.overview : cams[k], 0);
+      }, 160);
     }
     window.addEventListener('resize', onResize);
 
@@ -1079,7 +1167,7 @@
     return {
       setReady(v) { ready = !!v; refreshGo(); },
       goto(k) { if (k >= n) showEnd(); else goto(k); },
-      overview() { applyCam(cams.overview, 0); },
+      overview() { if (THEME.layout !== 'carousel') applyCam(cams.overview, 0); },
       destroy() { finish(true); },
       isOpen() { return !gone; },
     };
