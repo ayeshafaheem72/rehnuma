@@ -26,13 +26,35 @@
      colour-blind separation dE 9.3 (target >= 8), every mark >= 3:1 against the board. */
   const CHART = ['#E6006E', '#0090B0', '#A87300', '#009469', '#F03A22'];
 
-  /* dawn -> morning -> noon -> dusk -> night, spread across the story */
-  const SKY = [
+  /* dawn -> morning -> noon -> dusk -> night, spread across the story - one sky per theme,
+     since the "world" each mode plays out in has its own time of day */
+  const SKY_STORY = [
     { top: '#3A1C6E', bot: '#FF8A5B', hill: '#7A3B8C' },
     { top: '#1F7AC0', bot: '#9ADBFF', hill: '#2C8F7A' },
     { top: '#1E90E6', bot: '#D4F1FF', hill: '#2FA36B' },
     { top: '#6A2C91', bot: '#FF7A8A', hill: '#5B2A7A' },
     { top: '#0A1636', bot: '#2E4C9A', hill: '#152A5C' },
+  ];
+  const SKY_CHALLENGE = [        // an afternoon match running into floodlit evening
+    { top: '#1E63A8', bot: '#8FC7E8', hill: '#1E6B46' },
+    { top: '#1B7FC2', bot: '#BEE6FF', hill: '#237A4C' },
+    { top: '#2E93D6', bot: '#DFF4FF', hill: '#2C8F5A' },
+    { top: '#5B3A8C', bot: '#F0965B', hill: '#1E5A3C' },
+    { top: '#0B1830', bot: '#274E86', hill: '#123322' },
+  ];
+  const SKY_TOUR = [              // above the clouds, atlas blues throughout
+    { top: '#1657A0', bot: '#BFE3FF', hill: '#3E6E8C' },
+    { top: '#1B6FC0', bot: '#D6EFFF', hill: '#48789A' },
+    { top: '#1E86D6', bot: '#EAF7FF', hill: '#5286A6' },
+    { top: '#2E4C8C', bot: '#8FB6E0', hill: '#3A5E82' },
+    { top: '#0A1C3E', bot: '#26407A', hill: '#1C3456' },
+  ];
+  const SKY_DEEP = [               // a garage interior, warm work-light through the session
+    { top: '#4A3420', bot: '#B9793A', hill: '#3A3226' },
+    { top: '#553C22', bot: '#D89A4E', hill: '#443A2C' },
+    { top: '#5C4526', bot: '#F0B25E', hill: '#4A4030' },
+    { top: '#3A2A22', bot: '#9A5A32', hill: '#332C22' },
+    { top: '#1C140E', bot: '#4A3420', hill: '#201A14' },
   ];
 
   const REDUCED = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -210,8 +232,8 @@
     return d + ` L${w} ${h} Z`;
   }
 
-  function backdrop(i, n, ac, uid) {
-    const t = n > 1 ? i / (n - 1) : 0, phase = Math.round(t * 4), sky = SKY[phase], r = rng(i + 3);
+  function backdrop(i, n, ac, uid, skyTable) {
+    const t = n > 1 ? i / (n - 1) : 0, phase = Math.round(t * 4), sky = (skyTable || SKY_STORY)[phase], r = rng(i + 3);
     const g = s('g');
     const gid = 'sky' + uid;
     g.append(s('defs', null, s('linearGradient', { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 },
@@ -500,11 +522,11 @@
   }
 
   /* One scene poster, drawn as a single SVG. */
-  function drawScene(sc, i, n, uid) {
+  function drawScene(sc, i, n, uid, sky) {
     const ac = ACCENT[sc.accent] || ACCENT.pink;
     const rtl = isRtl(sc.title) || isRtl((sc.items[0] || {}).label);
     const svg = s('svg', { viewBox: '0 0 640 360', role: 'img', 'aria-label': altText(sc), preserveAspectRatio: 'xMidYMid slice', class: 'art' });
-    svg.append(backdrop(i, n, ac, uid));
+    svg.append(backdrop(i, n, ac, uid, sky));
     // the board: a cream panel with a hard shadow, like the painted panels on a truck
     svg.append(s('rect', { x: BOARD.x + 7, y: BOARD.y + 7, width: BOARD.w, height: BOARD.h, fill: INK, opacity: 0.55 }));
     svg.append(s('rect', { x: BOARD.x, y: BOARD.y, width: BOARD.w, height: BOARD.h, fill: CREAM, stroke: INK, 'stroke-width': 4 }));
@@ -538,11 +560,11 @@
 
   /* Narrow screens: the diagram's labels would be 8px tall, so the poster keeps the picture
      (sky, medallion) and the items become real, wrapping, tappable-size text below it. */
-  function drawCompact(sc, i, n, uid) {
+  function drawCompact(sc, i, n, uid, sky) {
     const ac = ACCENT[sc.accent] || ACCENT.pink;
     const wrap_ = h('div', 'compact-card');
     const svg = s('svg', { viewBox: '0 0 640 250', class: 'art', preserveAspectRatio: 'xMidYMid slice', 'aria-hidden': 'true' });
-    svg.append(backdrop(i, n, ac, uid));
+    svg.append(backdrop(i, n, ac, uid, sky));
     svg.append(medallion(320, 128, 74, ac, true), icon(sc.icon, 320, 128, 84, INK, 1.8));
     wrap_.append(svg);
     const body = h('div', 'compact-body');
@@ -584,12 +606,105 @@
       s('path', { d: 'M2 -46 H30 L24 -37 L30 -28 H2 Z', fill: color, stroke: INK, 'stroke-width': 3 }));
   }
 
+  /* the other three movers - same 72x50 box as the truck, so the positioning and
+     rotation math in setTruck()/drive() never has to know which one it is placing */
+  function cricketBall() {
+    const g = s('g');
+    g.append(s('circle', { cx: 36, cy: 25, r: 20, fill: '#B32210', stroke: INK, 'stroke-width': 3.5 }));
+    g.append(s('path', { d: 'M22 9c8 6 8 26 0 32', fill: 'none', stroke: CREAM, 'stroke-width': 2.2, 'stroke-linecap': 'round' }));
+    g.append(s('path', { d: 'M50 9c-8 6-8 26 0 32', fill: 'none', stroke: CREAM, 'stroke-width': 2.2, 'stroke-linecap': 'round' }));
+    return g;
+  }
+  function paperPlane() {
+    const g = s('g');
+    g.append(s('path', { d: 'M4 26 L64 6 L34 46 L28 30 Z', fill: CREAM, stroke: INK, 'stroke-width': 3.5, 'stroke-linejoin': 'round' }));
+    g.append(s('path', { d: 'M4 26 L28 30 L34 46', fill: 'none', stroke: INK, 'stroke-width': 2.2, 'stroke-linejoin': 'round' }));
+    g.append(s('path', { d: 'M28 30 L64 6', fill: 'none', stroke: '#B0D9F5', 'stroke-width': 2, 'stroke-dasharray': '1 5', 'stroke-linecap': 'round' }));
+    return g;
+  }
+  function toolTrolley() {
+    const g = s('g');
+    g.append(s('rect', { x: 22, y: 2, width: 28, height: 8, rx: 2, fill: INK }));
+    g.append(s('rect', { x: 10, y: 8, width: 52, height: 24, rx: 3, fill: '#5C5240', stroke: INK, 'stroke-width': 3.5 }));
+    g.append(s('rect', { x: 10, y: 8, width: 52, height: 7, rx: 3, fill: '#FFC402', stroke: INK, 'stroke-width': 3 }));
+    g.append(icon('gear', 36, 25, 20, INK, 2));
+    [[22, 39], [50, 39]].forEach(([cx, cy]) => {
+      const place = s('g', { transform: `translate(${cx} ${cy})` });
+      const w = s('g', { class: 'wheel' });
+      w.append(s('circle', { r: 8, fill: INK }), s('circle', { r: 3.4, fill: CREAM }));
+      place.append(w);
+      g.append(place);
+    });
+    return g;
+  }
+
+  /* ---------------------------------------------------------- theme chrome */
+
+  /* Everything below tells the world it is a road, a cricket ground, a flight path or a
+     workshop bench: route colours, what stands beside it, the badge at each stop, the
+     start/end markers, the thing that moves, and the words the HUD uses for a "scene".
+     The camera, the poster content and the state machine never look at this - a theme is
+     purely the stage dressing. */
+  const THEMES = {
+    story: {
+      sky: SKY_STORY,
+      route: { fill: '#2C4165', dash: '#FFC402', progress: '#FFE58A' },
+      badge: { fill: '#FFC402', text: INK },
+      startColor: '#00A878', endColor: '#E6006E',
+      decor(rsvg, x, y, sz) {
+        rsvg.append(s('g', { transform: `translate(${x} ${y}) scale(${sz})` },
+          s('rect', { x: -3, y: -8, width: 6, height: 16, fill: '#4A3A2A' }),
+          s('path', { d: 'M0 -46 L15 -6 H-15 Z', fill: mix('#00A878', INK, 0.35), stroke: INK, 'stroke-width': 2 })));
+      },
+      vehicle: truck,
+      nouns: { unit: 'Scene', endMeta: 'The end of the road', endEyebrow: 'The road ahead' },
+    },
+    challenge: {
+      sky: SKY_CHALLENGE,
+      route: { fill: '#1E6B46', dash: '#F2E9D8', progress: '#FF9A86' },
+      badge: { fill: '#B32210', text: CREAM },
+      startColor: '#00A878', endColor: '#B32210',
+      decor(rsvg, x, y, sz) {
+        rsvg.append(s('g', { transform: `translate(${x} ${y}) scale(${sz})` },
+          s('rect', { x: -7, y: -18, width: 3, height: 18, fill: '#D9B173', stroke: INK, 'stroke-width': 1.5 }),
+          s('rect', { x: -1.5, y: -18, width: 3, height: 18, fill: '#D9B173', stroke: INK, 'stroke-width': 1.5 }),
+          s('rect', { x: 4, y: -18, width: 3, height: 18, fill: '#D9B173', stroke: INK, 'stroke-width': 1.5 }),
+          s('rect', { x: -8, y: -21, width: 16, height: 3, fill: INK })));
+      },
+      vehicle: cricketBall,
+      nouns: { unit: 'Over', endMeta: 'The end of the last over', endEyebrow: 'Last over' },
+    },
+    tour: {
+      sky: SKY_TOUR,
+      route: { fill: '#123A66', dash: '#F2E9D8', progress: '#9ADBFF' },
+      badge: { fill: '#0070B8', text: CREAM },
+      startColor: '#0070B8', endColor: '#00B4D8',
+      decor(rsvg, x, y, sz) { rsvg.append(icon('pin', x, y - 16 * sz, 30 * sz, '#E6006E', 2)); },
+      vehicle: paperPlane,
+      nouns: { unit: 'Stop', endMeta: 'The end of the journey', endEyebrow: 'Journey complete' },
+    },
+    deep: {
+      sky: SKY_DEEP,
+      route: { fill: '#4A4030', dash: '#FFC402', progress: '#FFE58A' },
+      badge: { fill: '#8A8064', text: INK },
+      startColor: '#FFC402', endColor: '#FF4530',
+      decor(rsvg, x, y, sz) {
+        rsvg.append(s('g', { transform: `translate(${x} ${y}) scale(${sz})` },
+          s('circle', { r: 7, fill: '#8A8064', stroke: INK, 'stroke-width': 2 }),
+          s('line', { x1: -3.5, y1: 0, x2: 3.5, y2: 0, stroke: INK, 'stroke-width': 1.5 })));
+      },
+      vehicle: toolTrolley,
+      nouns: { unit: 'Station', endMeta: 'The end of the bench', endEyebrow: 'Bench cleared' },
+    },
+  };
+
   /* ------------------------------------------------------------- the stage */
 
   function play(opts) {
     const story = opts.story, mount = opts.mount, scenes = story.scenes || [];
     const n = scenes.length;
     if (!n) { if (opts.onDone) opts.onDone(); return null; }
+    const THEME = THEMES[opts.theme] || THEMES.story;
 
     mount.textContent = '';
     mount.classList.remove('hidden');
@@ -635,10 +750,10 @@
     const auto = h('button', 'btn sm ghost', '⏸ Pause'); auto.type = 'button';
     const dots = h('div', 'dots', '');
     dots.setAttribute('role', 'group');
-    dots.setAttribute('aria-label', 'Scenes');
+    dots.setAttribute('aria-label', THEME.nouns.unit + 's');
     scenes.forEach((_, k) => {
       const d = h('button', 'dot'); d.type = 'button';
-      d.setAttribute('aria-label', `Go to scene ${k + 1}`);
+      d.setAttribute('aria-label', `Go to ${THEME.nouns.unit.toLowerCase()} ${k + 1}`);
       d.addEventListener('click', () => goto(k));
       dots.append(d);
     });
@@ -668,44 +783,42 @@
         return { x, y, cx: x + cw / 2, cy: y + ch / 2, road: { x: x + cw / 2, y: y + ch + 34 } };
       });
 
-      // the road, drawn under the posters
+      // the route, drawn under the posters - a road, a pitch, a flight path or a bench,
+      // depending on the theme; the bezier through the stop points never changes
       const rsvg = s('svg', { class: 'road', width: worldW, height: worldH, viewBox: `0 0 ${worldW} ${worldH}`, 'aria-hidden': 'true' });
       const pts = [{ x: geo[0].road.x - cw * 0.9, y: geo[0].road.y + 6 }].concat(geo.map(g => g.road), [{ x: geo[n - 1].road.x + cw * 0.9, y: geo[n - 1].road.y - 6 }]);
       let d = `M${pts[0].x} ${pts[0].y}`;
       for (let k = 1; k < pts.length; k++) { const mx = (pts[k - 1].x + pts[k].x) / 2; d += ` C${mx} ${pts[k - 1].y} ${mx} ${pts[k].y} ${pts[k].x} ${pts[k].y}`; }
-      const layers = [['road-edge', 46], ['road-fill', 36], ['road-dash', 3]];
-      layers.forEach(([cls, w]) => rsvg.append(s('path', { d, class: cls, 'stroke-width': w, fill: 'none', 'stroke-linecap': 'round' })));
+      const layers = [['road-edge', 46, INK], ['road-fill', 36, THEME.route.fill], ['road-dash', 3, THEME.route.dash]];
+      layers.forEach(([cls, w, col]) => rsvg.append(s('path', { d, class: cls, stroke: col, 'stroke-width': w, fill: 'none', 'stroke-linecap': 'round' })));
       roadPath = s('path', { d, fill: 'none', stroke: 'none' });
       rsvg.append(roadPath);
       pathLen = roadPath.getTotalLength();
-      // trees and posts along the verge: cheap, and they make the road feel like a place
+      // decorations along the verge: cheap, and they make the route feel like a place
       const r = rng(9);
       for (let k = 0; k < Math.round(pathLen / 260); k++) {
         const at = roadPath.getPointAtLength((k + 0.5) * (pathLen / Math.round(pathLen / 260)));
         const side = k % 2 ? 1 : -1, off = 46 + r() * 20, x = at.x, y = at.y + side * off, sz = 0.8 + r() * 0.7;
-        const tree = s('g', { transform: `translate(${x} ${y}) scale(${sz})` },
-          s('rect', { x: -3, y: -8, width: 6, height: 16, fill: '#4A3A2A' }),
-          s('path', { d: 'M0 -46 L15 -6 H-15 Z', fill: mix('#00A878', INK, 0.35), stroke: INK, 'stroke-width': 2 }));
-        rsvg.append(tree);
+        THEME.decor(rsvg, x, y, sz);
       }
-      geo.forEach((g, k) => {            // a tyre at every stop, numbered
+      geo.forEach((g, k) => {            // a badge at every stop, numbered
         const stop = s('g', { transform: `translate(${g.road.x} ${g.road.y + 40})`, class: 'stop-tyre', 'data-k': k });
-        stop.append(s('circle', { r: 20, fill: INK }), s('circle', { r: 14, fill: '#FFC402', stroke: INK, 'stroke-width': 3 }));
-        stop.append(s('text', { 'text-anchor': 'middle', y: 5.5, 'font-size': 16, 'font-weight': 800, fill: INK, class: 't mono' }, String(k + 1)));
+        stop.append(s('circle', { r: 20, fill: INK }), s('circle', { r: 14, fill: THEME.badge.fill, stroke: INK, 'stroke-width': 3 }));
+        stop.append(s('text', { 'text-anchor': 'middle', y: 5.5, 'font-size': 16, 'font-weight': 800, fill: THEME.badge.text, class: 't mono' }, String(k + 1)));
         rsvg.append(stop);
       });
-      const startFlag = flagSvg('#00A878'); startFlag.setAttribute('transform', `translate(${pts[0].x + 40} ${pts[0].y - 22})`);
-      const endFlag = flagSvg('#E6006E'); endFlag.setAttribute('transform', `translate(${pts[pts.length - 1].x - 30} ${pts[pts.length - 1].y - 22})`);
+      const startFlag = flagSvg(THEME.startColor); startFlag.setAttribute('transform', `translate(${pts[0].x + 40} ${pts[0].y - 22})`);
+      const endFlag = flagSvg(THEME.endColor); endFlag.setAttribute('transform', `translate(${pts[pts.length - 1].x - 30} ${pts[pts.length - 1].y - 22})`);
       rsvg.append(startFlag, endFlag);
-      // the part of the road already travelled lights up
-      progress = s('path', { d, class: 'road-progress', fill: 'none', 'stroke-linecap': 'round', 'stroke-width': 8 });
+      // the part of the route already travelled lights up
+      progress = s('path', { d, class: 'road-progress', stroke: THEME.route.progress, fill: 'none', 'stroke-linecap': 'round', 'stroke-width': 8 });
       progress.style.strokeDasharray = pathLen; progress.style.strokeDashoffset = pathLen;
       rsvg.append(progress);
       world.append(rsvg);
 
-      // the truck
+      // the thing that moves along it
       truckSvg = s('svg', { class: 'truck', width: 86, height: 56, viewBox: '0 0 72 50', 'aria-hidden': 'true' });
-      truckSvg.append(truck());
+      truckSvg.append(THEME.vehicle());
       truckEl = h('div', 'truck-wrap'); truckEl.append(truckSvg);
 
       scenes.forEach((sc, k) => {
@@ -713,10 +826,10 @@
         const card = h('section', 'scene' + (compact ? ' compact' : ''));
         card.style.left = geo[k].x + 'px'; card.style.top = geo[k].y + 'px';
         card.style.width = cw + 'px'; card.style.height = ch + 'px';
-        card.setAttribute('aria-label', `Scene ${k + 1} of ${n}: ${sc.title}`);
+        card.setAttribute('aria-label', `${THEME.nouns.unit} ${k + 1} of ${n}: ${sc.title}`);
         let art;
-        try { art = compact ? drawCompact(sc, k, n, uid) : drawScene(sc, k, n, uid); }
-        catch (e) { art = drawCompact(sc, k, n, uid); }
+        try { art = compact ? drawCompact(sc, k, n, uid, THEME.sky) : drawScene(sc, k, n, uid, THEME.sky); }
+        catch (e) { art = drawCompact(sc, k, n, uid, THEME.sky); }
         card.append(art);
         // the source line this scene rests on: the story is grounded like everything else
         const q = opts.quotes && opts.quotes[sc.quote_id];
@@ -846,7 +959,7 @@
       viewed = Math.max(viewed, k + 1);
       if (opts.onProgress) opts.onProgress(viewed);
       posters.forEach((p, j) => p.classList.toggle('on', j === k));
-      meta.textContent = `${who ? who + ' · ' : ''}Scene ${k + 1} of ${n}`;
+      meta.textContent = `${who ? who + ' · ' : ''}${THEME.nouns.unit} ${k + 1} of ${n}`;
       updateHud();
       const arrive = () => {
         narrate(sc.narration, () => {
@@ -881,7 +994,7 @@
     /* the end of the road: pull all the way back, then offer the way in */
     const endCard = h('div', 'story-end');
     const endBox = h('div', 'end-box');
-    endBox.append(h('div', 'eyebrow', 'The road ahead'));
+    endBox.append(h('div', 'eyebrow', THEME.nouns.endEyebrow));
     const endLine = h('p', 'end-line' + (isRtl(story.closing) ? ' urdu rtl' : ''), story.closing || 'Now put it to use.');
     const go = h('button', 'btn pink', 'Start the first mission ▶'); go.type = 'button';
     const wait = h('span', 'small', 'Getting your first mission ready…');
@@ -897,7 +1010,7 @@
       clearTimers();
       if (opts.voice) opts.voice.stop();
       posters.forEach(p => p.classList.remove('on'));
-      meta.textContent = `${who ? who + ' · ' : ''}The end of the road`;
+      meta.textContent = `${who ? who + ' · ' : ''}${THEME.nouns.endMeta}`;
       line.textContent = story.closing || '';
       line.classList.toggle('urdu', isRtl(story.closing)); line.classList.toggle('rtl', isRtl(story.closing));
       line.setAttribute('dir', isRtl(story.closing) ? 'rtl' : 'ltr');

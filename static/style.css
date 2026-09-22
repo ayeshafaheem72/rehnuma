@@ -1043,6 +1043,19 @@ td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 }
 .mode:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 var(--ink); }
 .mode:focus-visible { outline: 3px solid var(--zard); outline-offset: 2px; }
+.mode-top { display: flex; align-items: center; gap: 8px; }
+
+/* each mode gets its own sticker badge and accent - a road/challenge/tour/deep
+   identity that reads at a glance, distinct from the yellow "selected" state below */
+.mode-icon { width: 26px; height: 26px; flex: none; }
+.mode-icon .badge { stroke: var(--ink); stroke-width: 2.2; }
+.mode-icon .glyph { fill: none; stroke: var(--ink); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.mode-icon .glyph-dot { fill: var(--ink); stroke: none; }
+.mode[data-mode="story"]     .mode-icon .badge { fill: var(--rani); }
+.mode[data-mode="challenge"] .mode-icon .badge { fill: var(--lal); }
+.mode[data-mode="tour"]      .mode-icon .badge { fill: var(--firozi); }
+.mode[data-mode="deep"]      .mode-icon .badge { fill: var(--sabz); }
+
 .mode .mode-name {
   font-family: var(--display);
   font-weight: 700;

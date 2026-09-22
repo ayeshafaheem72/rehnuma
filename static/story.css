@@ -43,10 +43,10 @@
 
 .story-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .story-world .road { position: absolute; left: 0; top: 0; overflow: visible; }
-.road-edge     { stroke: var(--ink); }
-.road-fill     { stroke: #2C4165; }
-.road-dash     { stroke: var(--zard); stroke-dasharray: 16 16; opacity: .9; }
-.road-progress { stroke: #FFE58A; opacity: .28; }
+/* edge/fill/dash/progress colours come from story.js's per-theme route config as
+   inline SVG attributes - a CSS colour here would win the cascade and override them */
+.road-dash     { stroke-dasharray: 16 16; opacity: .9; }
+.road-progress { opacity: .28; }
 
 /* ---- a scene poster */
 .scene {
