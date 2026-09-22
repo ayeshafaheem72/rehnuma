@@ -33,7 +33,7 @@ const S = {
   lastAdapt: null,
 };
 
-const LANG_NAME = { en: 'English', ur: 'Urdu', mixed: 'English and Urdu' };
+const LANG_NAME = { en: 'English', ur: 'Urdu', mixed: 'English and Urdu', roman: 'Roman Urdu' };
 
 /* ------------------------------------------------------------ helpers */
 
@@ -55,6 +55,8 @@ async function api(path, opts = {}) {
 }
 
 const isUrdu = () => S.eff && (S.eff.language === 'ur' || S.eff.language === 'mixed');
+/* Roman Urdu is spoken Urdu written in Latin letters: the learner may still talk to the microphone in Urdu */
+const speaksUrdu = () => S.eff && ['ur', 'mixed', 'roman'].includes(S.eff.language);
 const hasArabicScript = (t) => /[؀-ۿ]/.test(t || '');
 
 /* Read the preference live rather than once at load: a learner may change it mid-demo,
@@ -317,8 +319,9 @@ async function start() {
   const wantStory = !!(S.cfg && S.cfg.story_intro);
   // The story may still be being written. These lines describe what is happening in that
   // time; they are not a progress bar, because nothing here can honestly report progress.
+  const DRAWING = { story: 'Drawing the road...', challenge: 'Setting the field...', tour: 'Charting the route...', deep: 'Setting up the bench...' };
   const lines = wantStory
-    ? ['Choosing who the story is about...', 'Drawing the road...', 'Writing the scenes...', 'Choosing the pictures...']
+    ? ['Choosing who the story is about...', DRAWING[S.mode] || DRAWING.story, 'Writing the scenes...', 'Choosing the pictures...']
     : ['Setting the scene...'];
   let li = 0;
   $('startBtn').textContent = lines[0];
@@ -410,7 +413,7 @@ function playStory(replay) {
   }
   let reported = 0;
   S.storyCtl = RehnumaStory.play({
-    mount, story: S.story, quotes: S.quotes, voice: storyVoice(),
+    mount, story: S.story, quotes: S.quotes, voice: storyVoice(), theme: S.mode,
     onProgress: (v) => { if (!replay && v > reported) { reported = v; postEvent('story_progress', { viewed: v }); } },
     onDone: () => afterStory(false, replay),
     onSkip: () => afterStory(true, replay),
@@ -603,7 +606,7 @@ function syncPrefs() {
   if (document.activeElement !== $('prefConstraint')) $('prefConstraint').value = e.constraints || '';
   if (S.eff) bump('statLang', S.eff.language.toUpperCase());
   // the microphone listens in the language the learner is being taught in
-  if (!S.micChosen) micLang.set(isUrdu() ? 'ur-PK' : 'en-PK', true);
+  if (!S.micChosen) micLang.set(speaksUrdu() ? 'ur-PK' : 'en-PK', true);
   document.documentElement.lang = e.language === 'ur' ? 'ur' : 'en';
 }
 

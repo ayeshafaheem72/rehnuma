@@ -535,6 +535,11 @@ $('closeReport').addEventListener('click', () => { $('reportPanel').hidden = tru
 
 let CONFIG_SCHEMA = [];
 
+/* readable names for coded option values */
+const OPTION_LABELS = {
+  language: { en: 'en - English', ur: 'ur - Urdu (script)', mixed: 'mixed - English + Urdu', roman: 'roman - Roman Urdu' },
+};
+
 /* what each free-text setting is for, shown until something is typed */
 const TEXT_HINTS = {
   learner_profile: 'e.g. a first-time saver in their twenties, no banking background',
@@ -561,7 +566,7 @@ function fieldFor(f, cfg) {
   if (f.kind === 'select') {
     input = el('select');
     f.options.forEach(o => {
-      const opt = el('option', null, o);
+      const opt = el('option', null, (OPTION_LABELS[f.key] || {})[o] || o);
       opt.value = o;
       if (cfg[f.key] === o) opt.selected = true;
       input.appendChild(opt);

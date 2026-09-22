@@ -416,14 +416,14 @@ stop to stop. Every scene has a line of narration and one drawing.
 # The story
 
 - One protagonist with a first name that fits the subject's world and the learner's language
-  (a Pakistani name for Urdu or mixed). Something is at stake for them, each scene moves it
+  (a Pakistani name for Urdu, Roman Urdu or mixed). Something is at stake for them, each scene moves it
   forward, and the last scene leaves them somewhere better because of what they now understand.
-- 6 scenes in English, exactly 5 in Urdu or mixed (Urdu takes several times longer to
-  write, and a learner is waiting), following the concept map's order. Each scene carries
+- 6 scenes in English or Roman Urdu, exactly 5 in Urdu script or mixed (Urdu script takes
+  several times longer to write, and a learner is waiting), following the concept map's order. Each scene carries
   one concept (concept_id). Never more scenes than concepts.
 - Every scene, character and example comes from the world of the <subject>. Never borrow a
   setting from an unrelated domain because it is familiar to you.
-- narration: two short sentences, 40 words at most (30 in Urdu), present tense, plain
+- narration: two short sentences, 40 words at most (30 in Urdu script), present tense, plain
   prose. No markdown, no emoji, no headings.
 - GROUNDING. You may invent the characters and the scenery. You may never invent a fact, a
   figure, a rule or a claim about the subject: every fact in the narration must come from
@@ -470,6 +470,11 @@ protagonist's shoes for the first challenge).
 Write in the configured language. en = English. ur = Urdu in Urdu script. mixed = natural
 Pakistani code-switching: Urdu script with English technical terms, the way people write to
 each other. Urdu names are spelled in Urdu script.
+roman = Roman Urdu: Urdu written in the Latin alphabet, exactly as Pakistanis type it on a
+phone ('aap ne bilkul theek kaha', 'yeh account paisay ka record rakhta hai'). Use no Urdu
+script at all and no diacritics. English technical terms stay in English, names are spelled
+in Latin letters, and the spelling is plain and consistent (aap, hum, yeh, woh, hai, hain,
+nahi, kya, kyun, mein, se, ko, par, ka/ki/ke).
 
 # Adapting to the learner
 
@@ -850,7 +855,13 @@ already demonstrated - that is the fastest way to lose them.
 
 Write in the configured language. en = English. ur = Urdu in Urdu script. mixed = natural
 Pakistani code-switching, English technical terms inside Urdu sentences, the way people
-actually speak. Whatever the setting, if the learner writes to you in another language,
+actually speak.
+roman = Roman Urdu: Urdu written in the Latin alphabet, exactly as Pakistanis type it on a
+phone ('aap ne bilkul theek kaha', 'yeh account paisay ka record rakhta hai'). Use no Urdu
+script at all and no diacritics. English technical terms stay in English, names are spelled
+in Latin letters, and the spelling is plain and consistent (aap, hum, yeh, woh, hai, hain,
+nahi, kya, kyun, mein, se, ko, par, ka/ki/ke).
+Whatever the setting, if the learner writes to you in another language,
 understand them - but reply in the configured one. Roman Urdu from the learner ("samajh
 gaya") is normal; understand it. If urdu_transliteration is true and the language is ur or
 mixed, follow each Urdu paragraph with a Roman Urdu version of it in brackets."""

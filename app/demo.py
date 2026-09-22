@@ -119,8 +119,7 @@ def build_story(cmap: dict, cfg: dict) -> dict:
         "title": cmap.get("title", "Your story"),
         "character": "",
         "setting": cmap.get("subject", ""),
-        "closing": ("چلیں، اب خود آزماتے ہیں۔" if cfg.get("language") == "ur"
-                    else "Now let's put it to use."),
+        "closing": CLOSING.get(cfg.get("language"), "Now let's put it to use."),
         "scenes": scenes,
     }
 
@@ -188,8 +187,43 @@ CHOICES = {
 }
 
 
+# Roman Urdu: Urdu in the Latin alphabet, the way most people type it on a phone. Added beside the
+# Urdu-script entries so the offline engine speaks it too.
+OPENERS["roman"] = (
+    "Khush aamdeed. Hum sirf parhenge nahin, hum isay istemal karenge. Main aap ko asal sooratehaal mein rakhoon ga "
+    "aur faisla aap karenge.\n\nPehla mozoo: {title}.\n\n{quote}\n\n"
+    "Sooratehaal yeh hai: ek saathi yeh parh kar aap se poochta hai ke amali tor par is ka kya matlab hai. "
+    "Aap kya kahenge?")
+MISSION["roman"] = (
+    "Koi shakhs yeh parh kar aap ke paas aata hai aur kehta hai: “saaf batayein, {hook} ka amali tor par kya "
+    "matlab hai?”\n\nMawad kehta hai:\n{quote}\n\nAap kya jawab denge?")
+EXPLAIN["roman"] = (
+    "Bohat khoob. Ab zara mushkil marhala.\n\nEk naye trainee ne yeh satar parhi hai aur samajh nahin "
+    "paya:\n{quote}\n\nIsay apne alfaaz mein samjhayein, aasaan zubaan mein, jaise kisi dost ko batate hain.")
+PUZZLE["roman"] = (
+    "Ghalti pakrein.\n\nKoi is mawad ka khulasa yun karta hai: “{wrong}”\n\n"
+    "Jabke asal matan kehta hai:\n{quote}\n\nUnhon ne kya ghalat samjha?")
+HINT["roman"] = (
+    "Koi baat nahin, main doosre andaz mein batata hoon.\n\n{quote}\n\n"
+    "Alfaaz chhor dein. Ek jumle mein batayein: yeh asal mein kis cheez se bachata hai ya kya faida deta hai?")
+OFF_SOURCE["roman"] = (
+    "Saaf baat: upload kiye gaye mawad mein yeh maujood nahin, aur main khud se nahin banaoonga.\n\n"
+    "Albatta is mein yeh zaroor hai:\n{quote}\n\nKya hum yahan se aage barhein?")
+CHOICES["roman"] = [("a", "Unhein satar ba satar samjhayein"),
+                    ("b", "Ek thos amali misaal dein"),
+                    ("c", "Pehle poochein ke woh kya samajhte hain, phir durust karein")]
+
+# The wrong summary the puzzle asks the learner to spot, in each language
+WRONG = {"en": "it basically means {w} — and nothing else",
+         "ur": "اس کا مطلب بس یہ ہے: {w} — اور کچھ نہیں",
+         "roman": "iska matlab bas yeh hai: {w} — aur kuch nahin"}
+
+# The line that ends the offline story
+CLOSING = {"ur": "چلیں، اب خود آزماتے ہیں۔", "roman": "Chalein, ab isay istemal karke dekhte hain."}
+
+
 def _lang(cfg):
-    return "ur" if cfg.get("language") == "ur" else "en"
+    return cfg.get("language") if cfg.get("language") in ("ur", "roman") else "en"
 
 
 def _pick_concept(cmap: dict, learner_state: dict, cfg: dict):
@@ -265,7 +299,7 @@ def run_turn(concept_map: dict, learner_state: dict, history: list,
             kind = "puzzle"
             wrong = quote["text"].split()[:9]
             text = PUZZLE[lang].format(
-                wrong=("it basically means " + " ".join(wrong) + " — and nothing else"),
+                wrong=WRONG[lang].format(w=" ".join(wrong)),
                 quote=f'"{quote["text"]}"')
             choices = [Choice(id=c[0], text=c[1]) for c in CHOICES[lang]]
         else:

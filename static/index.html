@@ -107,6 +107,7 @@
                   <div class="pills" id="langPick" role="radiogroup" aria-label="Language">
                     <button class="pill-btn" type="button" role="radio" aria-checked="false" data-lang="en">English</button>
                     <button class="pill-btn" type="button" role="radio" aria-checked="false" data-lang="ur" lang="ur">اردو</button>
+                    <button class="pill-btn" type="button" role="radio" aria-checked="false" data-lang="roman">Roman Urdu</button>
                     <button class="pill-btn" type="button" role="radio" aria-checked="false" data-lang="mixed">Mixed</button>
                   </div>
                   <label class="inline"><span>Level</span>
@@ -155,19 +156,51 @@
             <div class="mode-pick" id="modePick" role="radiogroup"
                  aria-label="How would you like to play it?">
               <button class="mode" type="button" role="radio" aria-checked="false" data-mode="story">
-                <span class="mode-name">Story</span>
+                <span class="mode-top">
+                  <svg class="mode-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle class="badge" cx="12" cy="12" r="10"/>
+                    <g class="glyph">
+                      <rect x="3.5" y="8" width="12" height="9.5" rx="1"/>
+                      <path d="M15.5 11h4.2l3 3.2v3.3h-7.2"/>
+                      <circle class="glyph-dot" cx="8.2" cy="19" r="2"/>
+                      <circle class="glyph-dot" cx="19" cy="19" r="2"/>
+                    </g>
+                  </svg>
+                  <span class="mode-name">Story</span>
+                </span>
                 <span class="mode-desc">The ideas arrive inside an unfolding story.</span>
               </button>
               <button class="mode" type="button" role="radio" aria-checked="true" data-mode="challenge">
-                <span class="mode-name">Challenge</span>
+                <span class="mode-top">
+                  <svg class="mode-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle class="badge" cx="12" cy="12" r="10"/>
+                    <path class="glyph" d="M5 6.5c5 3 5 12.5 0 15"/>
+                    <path class="glyph" d="M19 6.5c-5 3-5 12.5 0 15"/>
+                  </svg>
+                  <span class="mode-name">Challenge</span>
+                </span>
                 <span class="mode-desc">Situations to act in, where choices carry consequences.</span>
               </button>
               <button class="mode" type="button" role="radio" aria-checked="false" data-mode="tour">
-                <span class="mode-name">Tour</span>
+                <span class="mode-top">
+                  <svg class="mode-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle class="badge" cx="12" cy="12" r="10"/>
+                    <path class="glyph" d="M4 13 L20 5 L11.5 20 L10 13 Z"/>
+                    <path class="glyph" d="M4 13 L14.5 11.3"/>
+                  </svg>
+                  <span class="mode-name">Tour</span>
+                </span>
                 <span class="mode-desc">A quick look at the shape of the whole subject.</span>
               </button>
               <button class="mode" type="button" role="radio" aria-checked="false" data-mode="deep">
-                <span class="mode-name">Deep</span>
+                <span class="mode-top">
+                  <svg class="mode-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle class="badge" cx="12" cy="12" r="10"/>
+                    <circle class="glyph" cx="12" cy="12" r="3"/>
+                    <circle class="glyph" cx="12" cy="12" r="7.6" stroke-dasharray="2.6 2.1"/>
+                  </svg>
+                  <span class="mode-name">Deep</span>
+                </span>
                 <span class="mode-desc">One concept at a time, with worked examples.</span>
               </button>
             </div>
@@ -229,7 +262,8 @@
             <div class="pills" id="prefLang" role="radiogroup" aria-labelledby="prefLangLabel">
               <button class="pill-btn" type="button" role="radio" aria-checked="false" data-lang="en">English</button>
               <button class="pill-btn" type="button" role="radio" aria-checked="false" data-lang="ur" lang="ur">اردو</button>
-              <button class="pill-btn" type="button" role="radio" aria-checked="false" data-lang="mixed">Mixed</button>
+              <button class="pill-btn" type="button" role="radio" aria-checked="false" data-lang="roman">Roman Urdu</button>
+                    <button class="pill-btn" type="button" role="radio" aria-checked="false" data-lang="mixed">Mixed</button>
             </div>
           </div>
           <div class="pref-grid">

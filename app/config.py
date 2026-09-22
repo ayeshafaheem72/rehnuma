@@ -18,7 +18,7 @@ from app import db
 DEFAULTS = {
     # --- who is learning ---
     "learner_level":      "beginner",     # beginner | intermediate | advanced
-    "language":           "en",           # en | ur | mixed
+    "language":           "en",           # en | ur | mixed | roman
     "tone":               "friendly",     # formal | friendly | playful
     "pace":               "normal",       # slow | normal | fast
     "learner_profile":    "",             # free text: who they are, e.g. "a first-time saver"
@@ -78,7 +78,7 @@ DEFAULTS = {
 #   text   -> options is the maximum length
 SCHEMA = [
     ("learner_level", "select", ["beginner", "intermediate", "advanced"], "Learner level"),
-    ("language", "select", ["en", "ur", "mixed"], "Language"),
+    ("language", "select", ["en", "ur", "mixed", "roman"], "Language"),
     ("tone", "select", ["formal", "friendly", "playful"], "Tone"),
     ("pace", "select", ["slow", "normal", "fast"], "Pace"),
     ("learner_profile", "text", 160, "Learner profile (who is learning)"),
@@ -109,7 +109,8 @@ SCHEMA = [
     ("retention_days", "number", (1, 365, 1), "Data retention (days)"),
 ]
 
-LANGUAGE_NAMES = {"en": "English", "ur": "Urdu", "mixed": "English + Urdu (code-switching)"}
+LANGUAGE_NAMES = {"en": "English", "ur": "Urdu", "mixed": "English + Urdu (code-switching)",
+                  "roman": "Roman Urdu (Urdu in the Latin alphabet)"}
 
 # What an unauthenticated learner's browser is told. Model, limits and caps stay server-side.
 PUBLIC_KEYS = ("language", "learner_level", "tone", "pace", "default_mode", "story_intro",
